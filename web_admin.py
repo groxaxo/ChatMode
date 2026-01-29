@@ -44,17 +44,6 @@ except ImportError as e:
 
 templates = Jinja2Templates(directory="templates")
 
-# Add CORS for Vite frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-templates = Jinja2Templates(directory="templates")
-
 base_dir = os.path.dirname(__file__)
 default_frontend_dir = os.path.join(base_dir, "frontend")
 reun10n_frontend_dir = os.path.join(base_dir, "Reun10n", "frontend")
@@ -159,7 +148,8 @@ def status(request: Request):
 def list_agents():
     """List all available agents."""
     import json
-    config_path = os.path.join(os.path.dirname(__file__), "agent_config.json")
+    base_dir = os.path.dirname(__file__)
+    config_path = os.path.join(base_dir, "agent_config.json")
 
     try:
         with open(config_path, "r") as f:
@@ -167,7 +157,19 @@ def list_agents():
 
         agents_info = []
         for agent_conf in config.get("agents", []):
-            with open(agent_conf["file"], "r") as f:
+            agent_file = agent_conf["file"]
+            
+            # Security: Validate file path is within profiles directory
+            abs_file_path = os.path.abspath(agent_file)
+            profiles_dir = os.path.abspath(os.path.join(base_dir, "profiles"))
+            if not abs_file_path.startswith(profiles_dir):
+                print(f"Warning: Skipping agent file outside profiles directory: {agent_file}")
+                continue
+            
+            if not os.path.exists(abs_file_path):
+                continue
+                
+            with open(abs_file_path, "r") as f:
                 profile = json.load(f)
 
             agents_info.append(
@@ -189,7 +191,8 @@ def list_agents():
 def get_agent_profile(agent_name: str):
     """Get full agent profile."""
     import json
-    config_path = os.path.join(os.path.dirname(__file__), "agent_config.json")
+    base_dir = os.path.dirname(__file__)
+    config_path = os.path.join(base_dir, "agent_config.json")
 
     try:
         with open(config_path, "r") as f:
@@ -197,7 +200,18 @@ def get_agent_profile(agent_name: str):
 
         for agent_conf in config.get("agents", []):
             if agent_conf.get("name") == agent_name:
-                with open(agent_conf["file"], "r") as f:
+                agent_file = agent_conf["file"]
+                
+                # Security: Validate file path is within profiles directory
+                abs_file_path = os.path.abspath(agent_file)
+                profiles_dir = os.path.abspath(os.path.join(base_dir, "profiles"))
+                if not abs_file_path.startswith(profiles_dir):
+                    return JSONResponse({"error": "Invalid agent file path"}, status_code=400)
+                
+                if not os.path.exists(abs_file_path):
+                    return JSONResponse({"error": "Agent file not found"}, status_code=404)
+                    
+                with open(abs_file_path, "r") as f:
                     profile = json.load(f)
                 return profile
 
@@ -208,10 +222,11 @@ def get_agent_profile(agent_name: str):
 
 
 @app.post("/agents/{agent_name}")
-def update_agent_profile(agent_name: str, request: Request):
+async def update_agent_profile(agent_name: str, request: Request):
     """Update agent profile."""
     import json
-    config_path = os.path.join(os.path.dirname(__file__), "agent_config.json")
+    base_dir = os.path.dirname(__file__)
+    config_path = os.path.join(base_dir, "agent_config.json")
 
     try:
         # Load config
@@ -228,31 +243,51 @@ def update_agent_profile(agent_name: str, request: Request):
         if not agent_file:
             return JSONResponse({"error": "Agent not found"}, status_code=404)
 
+        # Security: Validate file path is within profiles directory
+        abs_file_path = os.path.abspath(agent_file)
+        profiles_dir = os.path.abspath(os.path.join(base_dir, "profiles"))
+        if not abs_file_path.startswith(profiles_dir):
+            return JSONResponse({"error": "Invalid agent file path"}, status_code=400)
+
         # Load current profile
-        with open(agent_file, "r") as f:
+        if not os.path.exists(abs_file_path):
+            return JSONResponse({"error": "Agent file not found"}, status_code=404)
+            
+        with open(abs_file_path, "r") as f:
             profile = json.load(f)
 
         # Get update data
-        import asyncio
-        update_data = asyncio.run(request.json())
+        update_data = await request.json()
 
-        # Update fields
+        # Validate and update fields
         if "conversing" in update_data:
+            if not isinstance(update_data["conversing"], str):
+                return JSONResponse({"error": "conversing must be a string"}, status_code=400)
             profile["conversing"] = update_data["conversing"]
+            
         if "max_tokens" in update_data:
+            max_tokens = update_data["max_tokens"]
+            if not isinstance(max_tokens, int) or max_tokens < 1 or max_tokens > 10000:
+                return JSONResponse({"error": "max_tokens must be between 1 and 10000"}, status_code=400)
             if "params" not in profile:
                 profile["params"] = {}
-            profile["params"]["max_tokens"] = update_data["max_tokens"]
+            profile["params"]["max_tokens"] = max_tokens
+            
         if "temperature" in update_data:
+            temperature = update_data["temperature"]
+            if not isinstance(temperature, (int, float)) or temperature < 0 or temperature > 2:
+                return JSONResponse({"error": "temperature must be between 0 and 2"}, status_code=400)
             if "params" not in profile:
                 profile["params"] = {}
-            profile["params"]["temperature"] = update_data["temperature"]
+            profile["params"]["temperature"] = float(temperature)
 
         # Save profile
-        with open(agent_file, "w") as f:
+        with open(abs_file_path, "w") as f:
             json.dump(profile, f, indent=2)
 
         return {"status": "success", "agent": agent_name}
 
+    except json.JSONDecodeError:
+        return JSONResponse({"error": "Invalid JSON in request body"}, status_code=400)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
