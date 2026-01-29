@@ -70,7 +70,13 @@ app.mount("/audio", StaticFiles(directory=settings.tts_output_dir), name="audio"
 
 @app.get("/", response_class=HTMLResponse)
 def admin_page(request: Request):
-    # Serve unified frontend directly
+    # Serve new unified app frontend
+    app_path = os.path.join(frontend_dir, "app.html")
+    if os.path.exists(app_path):
+        with open(app_path, "r") as f:
+            return HTMLResponse(content=f.read())
+    
+    # Fallback to old unified
     unified_path = os.path.join(frontend_dir, "unified.html")
     if os.path.exists(unified_path):
         with open(unified_path, "r") as f:
@@ -169,10 +175,84 @@ def list_agents():
                     "name": profile.get("name", agent_conf.get("name")),
                     "model": profile.get("model", "default"),
                     "api": profile.get("api", "openai"),
+                    "file": agent_conf["file"],
                 }
             )
 
         return {"agents": agents_info}
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/agents/{agent_name}")
+def get_agent_profile(agent_name: str):
+    """Get full agent profile."""
+    import json
+    config_path = os.path.join(os.path.dirname(__file__), "agent_config.json")
+
+    try:
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        for agent_conf in config.get("agents", []):
+            if agent_conf.get("name") == agent_name:
+                with open(agent_conf["file"], "r") as f:
+                    profile = json.load(f)
+                return profile
+
+        return JSONResponse({"error": "Agent not found"}, status_code=404)
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/agents/{agent_name}")
+def update_agent_profile(agent_name: str, request: Request):
+    """Update agent profile."""
+    import json
+    config_path = os.path.join(os.path.dirname(__file__), "agent_config.json")
+
+    try:
+        # Load config
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        # Find agent file
+        agent_file = None
+        for agent_conf in config.get("agents", []):
+            if agent_conf.get("name") == agent_name:
+                agent_file = agent_conf["file"]
+                break
+
+        if not agent_file:
+            return JSONResponse({"error": "Agent not found"}, status_code=404)
+
+        # Load current profile
+        with open(agent_file, "r") as f:
+            profile = json.load(f)
+
+        # Get update data
+        import asyncio
+        update_data = asyncio.run(request.json())
+
+        # Update fields
+        if "conversing" in update_data:
+            profile["conversing"] = update_data["conversing"]
+        if "max_tokens" in update_data:
+            if "params" not in profile:
+                profile["params"] = {}
+            profile["params"]["max_tokens"] = update_data["max_tokens"]
+        if "temperature" in update_data:
+            if "params" not in profile:
+                profile["params"] = {}
+            profile["params"]["temperature"] = update_data["temperature"]
+
+        # Save profile
+        with open(agent_file, "w") as f:
+            json.dump(profile, f, indent=2)
+
+        return {"status": "success", "agent": agent_name}
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
