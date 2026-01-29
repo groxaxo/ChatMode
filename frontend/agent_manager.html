@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatMode - Agent Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .audio-player {
+            height: 32px;
+            border-radius: 9999px;
+        }
+        .tab-active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div x-data="agentManager()" x-init="init()" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow">
+            <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="bot" class="w-8 h-8 text-blue-500"></i>
+                    Agent Manager
+                </h1>
+                <div class="flex items-center gap-4">
+                    <span x-text="currentUser?.username" class="text-gray-600 dark:text-gray-300"></span>
+                    <button @click="logout()" class="text-gray-500 hover:text-red-500">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Login Modal -->
+        <template x-if="!token">
+            <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-8 w-96 shadow-xl">
+                    <h2 class="text-xl font-bold mb-6 text-gray-900 dark:text-white">Login</h2>
+                    <form @submit.prevent="login()">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+                            <input type="text" x-model="loginForm.username" 
+                                   class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                   required>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+                            <input type="password" x-model="loginForm.password"
+                                   class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                   required>
+                        </div>
+                        <p x-show="loginError" x-text="loginError" class="text-red-500 text-sm mb-4"></p>
+                        <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">
+                            Sign In
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </template>
+
+        <!-- Main Content -->
+        <template x-if="token">
+            <main class="max-w-7xl mx-auto px-4 py-6">
+                <!-- Tabs -->
+                <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+                    <nav class="flex gap-8">
+                        <button @click="activeTab = 'agents'" 
+                                :class="activeTab === 'agents' ? 'tab-active' : 'text-gray-500'"
+                                class="py-3 font-medium flex items-center gap-2">
+                            <i data-lucide="users" class="w-4 h-4"></i> Agents
+                        </button>
+                        <button @click="activeTab = 'conversations'"
+                                :class="activeTab === 'conversations' ? 'tab-active' : 'text-gray-500'"
+                                class="py-3 font-medium flex items-center gap-2">
+                            <i data-lucide="messages-square" class="w-4 h-4"></i> Conversations
+                        </button>
+                        <button @click="activeTab = 'users'" x-show="currentUser?.role === 'admin'"
+                                :class="activeTab === 'users' ? 'tab-active' : 'text-gray-500'"
+                                class="py-3 font-medium flex items-center gap-2">
+                            <i data-lucide="shield" class="w-4 h-4"></i> Users
+                        </button>
+                        <button @click="activeTab = 'audit'" x-show="currentUser?.role === 'admin'"
+                                :class="activeTab === 'audit' ? 'tab-active' : 'text-gray-500'"
+                                class="py-3 font-medium flex items-center gap-2">
+                            <i data-lucide="scroll-text" class="w-4 h-4"></i> Audit Log
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Agents Tab -->
+                <div x-show="activeTab === 'agents'" x-cloak>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Agents</h2>
+                        <button @click="openAgentModal()" 
+                                class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> New Agent
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Model</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Provider</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TTS</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Memory</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                <template x-for="agent in agents" :key="agent.id">
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                        <td class="px-4 py-3">
+                                            <div class="font-medium text-gray-900 dark:text-white" x-text="agent.display_name || agent.name"></div>
+                                            <div class="text-xs text-gray-500" x-text="agent.name"></div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300" x-text="agent.model"></td>
+                                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300" x-text="agent.provider || 'openai'"></td>
+                                        <td class="px-4 py-3">
+                                            <span x-show="agent.voice_settings?.tts_enabled" class="text-green-500">
+                                                <i data-lucide="volume-2" class="w-4 h-4"></i>
+                                            </span>
+                                            <span x-show="!agent.voice_settings?.tts_enabled" class="text-gray-400">
+                                                <i data-lucide="volume-x" class="w-4 h-4"></i>
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span x-show="agent.memory_settings?.memory_enabled" class="text-green-500">
+                                                <i data-lucide="brain" class="w-4 h-4"></i>
+                                            </span>
+                                            <span x-show="!agent.memory_settings?.memory_enabled" class="text-gray-400">
+                                                <i data-lucide="brain-cog" class="w-4 h-4"></i>
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span x-show="agent.enabled" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Active</span>
+                                            <span x-show="!agent.enabled" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Disabled</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <button @click="editAgent(agent)" class="text-blue-500 hover:text-blue-700 mr-2">
+                                                <i data-lucide="pencil" class="w-4 h-4"></i>
+                                            </button>
+                                            <button @click="deleteAgent(agent)" class="text-red-500 hover:text-red-700">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Conversations Tab -->
+                <div x-show="activeTab === 'conversations'" x-cloak>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Conversations</h2>
+                    
+                    <div class="grid grid-cols-12 gap-4">
+                        <!-- Conversation List -->
+                        <div class="col-span-4 bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                            <div class="divide-y divide-gray-200 dark:divide-gray-700 max-h-[70vh] overflow-y-auto">
+                                <template x-for="conv in conversations" :key="conv.id">
+                                    <div @click="selectConversation(conv)" 
+                                         :class="selectedConversation?.id === conv.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''"
+                                         class="px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750">
+                                        <div class="font-medium text-gray-900 dark:text-white truncate" x-text="conv.title || 'Untitled'"></div>
+                                        <div class="text-xs text-gray-500 flex items-center gap-2 mt-1">
+                                            <span x-text="conv.message_count + ' messages'"></span>
+                                            <span>•</span>
+                                            <span x-text="new Date(conv.created_at).toLocaleDateString()"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <!-- Message View -->
+                        <div class="col-span-8 bg-white dark:bg-gray-800 rounded-lg shadow">
+                            <template x-if="selectedConversation">
+                                <div>
+                                    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                                        <h3 class="font-semibold text-gray-900 dark:text-white" x-text="selectedConversation.title || 'Conversation'"></h3>
+                                        <div class="flex gap-2">
+                                            <button @click="exportConversation('markdown')" class="text-gray-500 hover:text-blue-500">
+                                                <i data-lucide="download" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="p-4 max-h-[60vh] overflow-y-auto space-y-4">
+                                        <template x-for="msg in selectedConversation.messages" :key="msg.id">
+                                            <div :class="msg.role === 'user' ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-700/50'"
+                                                 class="rounded-lg p-4">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <span class="font-medium text-sm" :class="msg.role === 'user' ? 'text-blue-600' : 'text-gray-600 dark:text-gray-400'"
+                                                          x-text="msg.role === 'user' ? 'User' : (msg.agent_id || 'Assistant')"></span>
+                                                    <span class="text-xs text-gray-400" x-text="new Date(msg.created_at).toLocaleTimeString()"></span>
+                                                </div>
+                                                <div class="text-gray-800 dark:text-gray-200 whitespace-pre-wrap" x-text="msg.content"></div>
+                                                
+                                                <!-- Voice Attachments -->
+                                                <template x-if="msg.voice_assets?.length">
+                                                    <div class="mt-3 space-y-2">
+                                                        <template x-for="audio in msg.voice_assets" :key="audio.id">
+                                                            <div class="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg p-2">
+                                                                <i data-lucide="volume-2" class="w-4 h-4 text-blue-500"></i>
+                                                                <audio :src="`/api/v1/audio/${audio.id}/stream`" controls class="audio-player flex-1"></audio>
+                                                                <span class="text-xs text-gray-500" x-text="formatFileSize(audio.file_size)"></span>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="!selectedConversation">
+                                <div class="p-8 text-center text-gray-500">
+                                    <i data-lucide="message-square" class="w-12 h-12 mx-auto mb-4 opacity-50"></i>
+                                    <p>Select a conversation to view</p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Tab -->
+                <div x-show="activeTab === 'users'" x-cloak>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Users</h2>
+                        <button @click="openUserModal()" 
+                                class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> New User
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Role</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Login</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                <template x-for="user in users" :key="user.id">
+                                    <tr>
+                                        <td class="px-4 py-3 font-medium text-gray-900 dark:text-white" x-text="user.username"></td>
+                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-300" x-text="user.email || '-'"></td>
+                                        <td class="px-4 py-3">
+                                            <span :class="{
+                                                'bg-purple-100 text-purple-800': user.role === 'admin',
+                                                'bg-blue-100 text-blue-800': user.role === 'moderator',
+                                                'bg-gray-100 text-gray-800': user.role === 'viewer'
+                                            }" class="inline-flex items-center px-2 py-1 rounded-full text-xs" x-text="user.role"></span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span x-show="user.enabled" class="text-green-500">Active</span>
+                                            <span x-show="!user.enabled" class="text-red-500">Disabled</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-500" x-text="user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'"></td>
+                                        <td class="px-4 py-3 text-right">
+                                            <button @click="editUser(user)" class="text-blue-500 hover:text-blue-700 mr-2">
+                                                <i data-lucide="pencil" class="w-4 h-4"></i>
+                                            </button>
+                                            <button @click="toggleUserStatus(user)" :class="user.enabled ? 'text-orange-500' : 'text-green-500'">
+                                                <i :data-lucide="user.enabled ? 'user-x' : 'user-check'" class="w-4 h-4"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Audit Log Tab -->
+                <div x-show="activeTab === 'audit'" x-cloak>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Audit Log</h2>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Resource</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                <template x-for="log in auditLogs" :key="log.id">
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                        <td class="px-4 py-3 text-sm text-gray-500" x-text="new Date(log.created_at).toLocaleString()"></td>
+                                        <td class="px-4 py-3 text-gray-900 dark:text-white" x-text="log.username"></td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800" x-text="log.action"></span>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                            <span x-text="log.resource_type"></span>
+                                            <span class="text-gray-400" x-text="log.resource_id ? '#' + log.resource_id.slice(0, 8) : ''"></span>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-500" x-text="log.ip_address || '-'"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </template>
+
+        <!-- Agent Edit Modal -->
+        <template x-if="showAgentModal">
+            <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-8">
+                <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800">
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white" x-text="agentForm.id ? 'Edit Agent' : 'Create Agent'"></h2>
+                        <button @click="closeAgentModal()" class="text-gray-500 hover:text-gray-700">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    
+                    <form @submit.prevent="saveAgent()" class="p-6 space-y-6">
+                        <!-- Basic Info -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name (ID)</label>
+                                <input type="text" x-model="agentForm.name" required
+                                       class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                       placeholder="my_agent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display Name</label>
+                                <input type="text" x-model="agentForm.display_name"
+                                       class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                       placeholder="My Agent">
+                            </div>
+                        </div>
+
+                        <!-- Model & Provider -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
+                                <input type="text" x-model="agentForm.model" required
+                                       class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                       placeholder="gpt-4o">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+                                <select x-model="agentForm.provider"
+                                        class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <option value="openai">OpenAI Compatible</option>
+                                    <option value="ollama">Ollama</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API URL</label>
+                                <input type="url" x-model="agentForm.api_url"
+                                       class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                       placeholder="https://api.openai.com/v1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
+                                <input type="password" x-model="agentForm.api_key"
+                                       class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                       :placeholder="agentForm.id ? '(unchanged)' : 'sk-...'">
+                            </div>
+                        </div>
+
+                        <!-- System Prompt -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
+                            <textarea x-model="agentForm.system_prompt" rows="4"
+                                      class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                      placeholder="You are a helpful assistant..."></textarea>
+                        </div>
+
+                        <!-- Developer Prompt -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Developer Prompt</label>
+                            <textarea x-model="agentForm.developer_prompt" rows="3"
+                                      class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                      placeholder="Internal instructions..."></textarea>
+                        </div>
+
+                        <!-- Generation Parameters -->
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                <input type="number" x-model="agentForm.temperature" step="0.1" min="0" max="2"
+                                       class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Tokens</label>
+                                <input type="number" x-model="agentForm.max_tokens" min="1"
+                                       class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Top P</label>
+                                <input type="number" x-model="agentForm.top_p" step="0.1" min="0" max="1"
+                                       class="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                        </div>
+
+                        <!-- TTS Settings -->
+                        <div class="border-t pt-4">
+                            <h3 class="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                <i data-lucide="volume-2" class="w-4 h-4"></i> Voice Settings
+                            </h3>
+                            <div class="space-y-3">
+                                <label class="flex items-center gap-2">
+                                    <input type="checkbox" x-model="agentForm.voice_settings.tts_enabled" class="rounded">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Enable Text-to-Speech</span>
+                                </label>
+                                <div x-show="agentForm.voice_settings.tts_enabled" class="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 dark:text-gray-400 mb-1">TTS Provider</label>
+                                        <input type="text" x-model="agentForm.voice_settings.tts_provider"
+                                               class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 dark:text-gray-400 mb-1">Voice</label>
+                                        <input type="text" x-model="agentForm.voice_settings.tts_voice"
+                                               class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 dark:text-gray-400 mb-1">Speaking Rate</label>
+                                        <input type="number" x-model="agentForm.voice_settings.speaking_rate" step="0.1" min="0.5" max="2"
+                                               class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Memory Settings -->
+                        <div class="border-t pt-4">
+                            <h3 class="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                <i data-lucide="brain" class="w-4 h-4"></i> Memory Settings
+                            </h3>
+                            <div class="space-y-3">
+                                <label class="flex items-center gap-2">
+                                    <input type="checkbox" x-model="agentForm.memory_settings.memory_enabled" class="rounded">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Enable Long-Term Memory</span>
+                                </label>
+                                <div x-show="agentForm.memory_settings.memory_enabled" class="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 dark:text-gray-400 mb-1">Embedding Model</label>
+                                        <input type="text" x-model="agentForm.memory_settings.embedding_model"
+                                               class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 dark:text-gray-400 mb-1">Retention (days)</label>
+                                        <input type="number" x-model="agentForm.memory_settings.retention_days" min="1"
+                                               class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 dark:text-gray-400 mb-1">Top K Results</label>
+                                        <input type="number" x-model="agentForm.memory_settings.top_k" min="1" max="20"
+                                               class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Enable/Disable -->
+                        <div class="border-t pt-4">
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" x-model="agentForm.enabled" class="rounded">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Agent Enabled</span>
+                            </label>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex justify-end gap-3 border-t pt-4">
+                            <button type="button" @click="closeAgentModal()" 
+                                    class="px-4 py-2 border rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                Cancel
+                            </button>
+                            <button type="submit" 
+                                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                                Save Agent
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        function agentManager() {
+            return {
+                token: localStorage.getItem('chatmode_token'),
+                currentUser: null,
+                activeTab: 'agents',
+                
+                // Login
+                loginForm: { username: '', password: '' },
+                loginError: '',
+                
+                // Data
+                agents: [],
+                conversations: [],
+                selectedConversation: null,
+                users: [],
+                auditLogs: [],
+                
+                // Modals
+                showAgentModal: false,
+                agentForm: this.getEmptyAgentForm(),
+                
+                getEmptyAgentForm() {
+                    return {
+                        id: null,
+                        name: '',
+                        display_name: '',
+                        model: 'gpt-4o',
+                        provider: 'openai',
+                        api_url: '',
+                        api_key: '',
+                        system_prompt: '',
+                        developer_prompt: '',
+                        temperature: 0.7,
+                        max_tokens: 4096,
+                        top_p: 1.0,
+                        enabled: true,
+                        voice_settings: {
+                            tts_enabled: false,
+                            tts_provider: 'openai',
+                            tts_voice: 'alloy',
+                            speaking_rate: 1.0
+                        },
+                        memory_settings: {
+                            memory_enabled: false,
+                            embedding_model: 'text-embedding-3-small',
+                            retention_days: 30,
+                            top_k: 5
+                        }
+                    };
+                },
+                
+                async init() {
+                    lucide.createIcons();
+                    if (this.token) {
+                        await this.fetchCurrentUser();
+                        await this.loadData();
+                    }
+                },
+                
+                async api(endpoint, options = {}) {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    };
+                    if (this.token) {
+                        headers['Authorization'] = `Bearer ${this.token}`;
+                    }
+                    
+                    const response = await fetch(endpoint, { ...options, headers });
+                    
+                    if (response.status === 401) {
+                        this.token = null;
+                        localStorage.removeItem('chatmode_token');
+                        return null;
+                    }
+                    
+                    return response;
+                },
+                
+                async login() {
+                    try {
+                        const formData = new FormData();
+                        formData.append('username', this.loginForm.username);
+                        formData.append('password', this.loginForm.password);
+                        
+                        const response = await fetch('/api/v1/auth/login', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (!response.ok) {
+                            const error = await response.json();
+                            this.loginError = error.detail?.message || 'Invalid credentials';
+                            return;
+                        }
+                        
+                        const data = await response.json();
+                        this.token = data.access_token;
+                        localStorage.setItem('chatmode_token', this.token);
+                        this.loginError = '';
+                        
+                        await this.fetchCurrentUser();
+                        await this.loadData();
+                        
+                        this.$nextTick(() => lucide.createIcons());
+                    } catch (e) {
+                        this.loginError = 'Login failed';
+                    }
+                },
+                
+                async logout() {
+                    await this.api('/api/v1/auth/logout', { method: 'POST' });
+                    this.token = null;
+                    this.currentUser = null;
+                    localStorage.removeItem('chatmode_token');
+                },
+                
+                async fetchCurrentUser() {
+                    const response = await this.api('/api/v1/auth/me');
+                    if (response?.ok) {
+                        this.currentUser = await response.json();
+                    }
+                },
+                
+                async loadData() {
+                    await Promise.all([
+                        this.loadAgents(),
+                        this.loadConversations(),
+                        this.loadUsers(),
+                        this.loadAuditLogs()
+                    ]);
+                },
+                
+                async loadAgents() {
+                    const response = await this.api('/api/v1/agents/');
+                    if (response?.ok) {
+                        const data = await response.json();
+                        this.agents = data.items || [];
+                    }
+                },
+                
+                async loadConversations() {
+                    const response = await this.api('/api/v1/conversations/');
+                    if (response?.ok) {
+                        const data = await response.json();
+                        this.conversations = data.items || [];
+                    }
+                },
+                
+                async loadUsers() {
+                    if (this.currentUser?.role !== 'admin') return;
+                    const response = await this.api('/api/v1/users/');
+                    if (response?.ok) {
+                        const data = await response.json();
+                        this.users = data.items || [];
+                    }
+                },
+                
+                async loadAuditLogs() {
+                    if (this.currentUser?.role !== 'admin') return;
+                    const response = await this.api('/api/v1/audit/?per_page=50');
+                    if (response?.ok) {
+                        const data = await response.json();
+                        this.auditLogs = data.items || [];
+                    }
+                },
+                
+                async selectConversation(conv) {
+                    const response = await this.api(`/api/v1/conversations/${conv.id}?include_messages=true`);
+                    if (response?.ok) {
+                        this.selectedConversation = await response.json();
+                    }
+                },
+                
+                openAgentModal() {
+                    this.agentForm = this.getEmptyAgentForm();
+                    this.showAgentModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                
+                closeAgentModal() {
+                    this.showAgentModal = false;
+                },
+                
+                editAgent(agent) {
+                    this.agentForm = {
+                        ...agent,
+                        api_key: '',
+                        voice_settings: agent.voice_settings || {
+                            tts_enabled: false,
+                            tts_provider: 'openai',
+                            tts_voice: 'alloy',
+                            speaking_rate: 1.0
+                        },
+                        memory_settings: agent.memory_settings || {
+                            memory_enabled: false,
+                            embedding_model: 'text-embedding-3-small',
+                            retention_days: 30,
+                            top_k: 5
+                        }
+                    };
+                    this.showAgentModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                
+                async saveAgent() {
+                    const method = this.agentForm.id ? 'PUT' : 'POST';
+                    const endpoint = this.agentForm.id 
+                        ? `/api/v1/agents/${this.agentForm.id}`
+                        : '/api/v1/agents/';
+                    
+                    const response = await this.api(endpoint, {
+                        method,
+                        body: JSON.stringify(this.agentForm)
+                    });
+                    
+                    if (response?.ok) {
+                        await this.loadAgents();
+                        this.closeAgentModal();
+                    }
+                },
+                
+                async deleteAgent(agent) {
+                    if (!confirm(`Delete agent "${agent.display_name || agent.name}"?`)) return;
+                    
+                    await this.api(`/api/v1/agents/${agent.id}`, { method: 'DELETE' });
+                    await this.loadAgents();
+                },
+                
+                formatFileSize(bytes) {
+                    if (!bytes) return '';
+                    const units = ['B', 'KB', 'MB', 'GB'];
+                    let i = 0;
+                    while (bytes >= 1024 && i < units.length - 1) {
+                        bytes /= 1024;
+                        i++;
+                    }
+                    return `${bytes.toFixed(1)} ${units[i]}`;
+                },
+                
+                async exportConversation(format) {
+                    if (!this.selectedConversation) return;
+                    const response = await this.api(`/api/v1/conversations/${this.selectedConversation.id}/export?format=${format}`);
+                    if (response?.ok) {
+                        const data = await response.json();
+                        const content = format === 'json' ? JSON.stringify(data, null, 2) : data.content;
+                        const blob = new Blob([content], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `conversation-${this.selectedConversation.id.slice(0,8)}.${format === 'json' ? 'json' : format === 'markdown' ? 'md' : 'txt'}`;
+                        a.click();
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>

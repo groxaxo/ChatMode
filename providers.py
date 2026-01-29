@@ -1,0 +1,130 @@
+import json
+from dataclasses import dataclass
+from typing import List, Dict, Optional
+
+import requests
+from openai import OpenAI
+
+
+class ChatProvider:
+    def chat(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+        options: Optional[Dict[str, object]] = None,
+    ) -> str:
+        raise NotImplementedError
+
+
+class EmbeddingProvider:
+    def embed(self, texts: List[str]) -> List[List[float]]:
+        raise NotImplementedError
+
+
+@dataclass
+class OpenAIChatProvider(ChatProvider):
+    base_url: str
+    api_key: str
+
+    def __post_init__(self):
+        self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+
+    def chat(self, model: str, messages: List[Dict[str, str]], temperature: float, max_tokens: int, options=None) -> str:
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content if response.choices else ""
+
+
+@dataclass
+class OpenAIEmbeddingProvider(EmbeddingProvider):
+    base_url: str
+    api_key: str
+    model: str
+
+    def __post_init__(self):
+        self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+
+    def embed(self, texts: List[str]) -> List[List[float]]:
+        response = self.client.embeddings.create(model=self.model, input=texts)
+        return [item.embedding for item in response.data]
+
+
+@dataclass
+class OllamaChatProvider(ChatProvider):
+    base_url: str
+
+    def chat(self, model: str, messages: List[Dict[str, str]], temperature: float, max_tokens: int, options=None) -> str:
+        url = f"{self.base_url}/api/chat"
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": temperature, "num_predict": max_tokens},
+        }
+        if options:
+            payload["options"].update(options)
+
+        response = requests.post(url, json=payload, timeout=120)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("message", {}).get("content", "")
+
+
+@dataclass
+class OllamaEmbeddingProvider(EmbeddingProvider):
+    base_url: str
+    model: str
+
+    def embed(self, texts: List[str]) -> List[List[float]]:
+        # Try /api/embed first (Ollama v0.1.29+), fallback to /api/embeddings
+        vectors: List[List[float]] = []
+        for text in texts:
+            embedding = self._embed_single(text)
+            vectors.append(embedding)
+        return vectors
+    
+    def _embed_single(self, text: str) -> List[float]:
+        # Try new endpoint first
+        try:
+            url = f"{self.base_url}/api/embed"
+            response = requests.post(
+                url,
+                json={"model": self.model, "input": text},
+                timeout=120,
+            )
+            response.raise_for_status()
+            data = response.json()
+            # New API returns embeddings as array
+            embeddings = data.get("embeddings", [[]])
+            return embeddings[0] if embeddings else []
+        except requests.RequestException:
+            # Fallback to legacy endpoint
+            url = f"{self.base_url}/api/embeddings"
+            response = requests.post(
+                url,
+                json={"model": self.model, "prompt": text},
+                timeout=120,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("embedding", [])
+
+
+def build_chat_provider(provider: str, base_url: str, api_key: str) -> ChatProvider:
+    provider = (provider or "openai").lower()
+    if provider == "ollama":
+        return OllamaChatProvider(base_url=base_url)
+    return OpenAIChatProvider(base_url=base_url, api_key=api_key)
+
+
+def build_embedding_provider(provider: str, base_url: str, api_key: str, model: str) -> EmbeddingProvider:
+    provider = (provider or "openai").lower()
+    if provider == "ollama":
+        return OllamaEmbeddingProvider(base_url=base_url, model=model)
+    return OpenAIEmbeddingProvider(base_url=base_url, api_key=api_key, model=model)

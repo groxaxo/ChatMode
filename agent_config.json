@@ -1,0 +1,20 @@
+{
+  "agents": [
+    {
+      "name": "lawyer",
+      "file": "/home/op/ChatMode/profiles/lawyer.json"
+    },
+    {
+      "name": "crook",
+      "file": "/home/op/ChatMode/profiles/crook.json"
+    },
+    {
+      "name": "prostitute",
+      "file": "/home/op/ChatMode/profiles/prostitute.json"
+    },
+    {
+      "name": "church_woman",
+      "file": "/home/op/ChatMode/profiles/church_woman.json"
+    }
+  ]
+}
