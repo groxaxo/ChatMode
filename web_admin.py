@@ -59,19 +59,13 @@ app.mount("/audio", StaticFiles(directory=settings.tts_output_dir), name="audio"
 
 @app.get("/", response_class=HTMLResponse)
 def admin_page(request: Request):
-    # Serve new unified app frontend
-    app_path = os.path.join(frontend_dir, "app.html")
-    if os.path.exists(app_path):
-        with open(app_path, "r") as f:
-            return HTMLResponse(content=f.read())
-    
-    # Fallback to old unified
+    # Serve unified.html as the main admin interface
     unified_path = os.path.join(frontend_dir, "unified.html")
     if os.path.exists(unified_path):
         with open(unified_path, "r") as f:
             return HTMLResponse(content=f.read())
     
-    # Fallback to template
+    # Fallback to template if unified.html is missing
     return templates.TemplateResponse(
         "admin.html",
         {

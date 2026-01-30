@@ -86,8 +86,8 @@ def main():
     print()
     print("Next steps:")
     print("  1. Start the server: uvicorn web_admin:app --reload")
-    print("  2. Open: http://localhost:8000/frontend/agent_manager.html")
-    print("  3. Login with your admin credentials")
+    print("  2. Open: http://localhost:8000")
+    print("  3. Navigate to the Agent Manager tab and login with your admin credentials")
     print("  4. (Optional) Run demo_setup.py to create demo agents")
 
 
