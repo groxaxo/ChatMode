@@ -105,20 +105,20 @@ class TestTTSNormalization:
 class TestMemoryStore:
     """Test MemoryStore functionality."""
     
-    def test_memory_initialization(self, mock_embedding_provider, tmp_path):
+    def test_memory_initialization(self, mock_embedding_provider, tmp_path, unique_collection_name):
         """Test memory store can be initialized."""
         store = MemoryStore(
-            collection_name="test_memory",
+            collection_name=unique_collection_name,
             persist_dir=str(tmp_path),
             embedding_provider=mock_embedding_provider,
         )
-        assert store.collection_name == "test_memory"
+        assert store.collection_name == unique_collection_name
         assert store.count() == 0
     
-    def test_memory_add_with_metadata(self, mock_embedding_provider, tmp_path):
+    def test_memory_add_with_metadata(self, mock_embedding_provider, tmp_path, unique_collection_name):
         """Test adding memory with enriched metadata."""
         store = MemoryStore(
-            collection_name="test_add",
+            collection_name=unique_collection_name,
             persist_dir=str(tmp_path),
             embedding_provider=mock_embedding_provider,
         )
@@ -135,10 +135,10 @@ class TestMemoryStore:
         assert store.count() == 1
         mock_embedding_provider.embed.assert_called()
     
-    def test_memory_ignores_empty_text(self, mock_embedding_provider, tmp_path):
+    def test_memory_ignores_empty_text(self, mock_embedding_provider, tmp_path, unique_collection_name):
         """Test that empty text is not stored."""
         store = MemoryStore(
-            collection_name="test_empty",
+            collection_name=unique_collection_name,
             persist_dir=str(tmp_path),
             embedding_provider=mock_embedding_provider,
         )
@@ -146,10 +146,10 @@ class TestMemoryStore:
         store.add(text="", metadata={"sender": "Agent1"})
         assert store.count() == 0
     
-    def test_memory_query(self, mock_embedding_provider, tmp_path):
+    def test_memory_query(self, mock_embedding_provider, tmp_path, unique_collection_name):
         """Test memory query returns results."""
         store = MemoryStore(
-            collection_name="test_query",
+            collection_name=unique_collection_name,
             persist_dir=str(tmp_path),
             embedding_provider=mock_embedding_provider,
         )
@@ -160,10 +160,10 @@ class TestMemoryStore:
         results = store.query("test query", k=5)
         assert len(results) == 2
     
-    def test_memory_clear(self, mock_embedding_provider, tmp_path):
+    def test_memory_clear(self, mock_embedding_provider, tmp_path, unique_collection_name):
         """Test memory can be cleared."""
         store = MemoryStore(
-            collection_name="test_clear",
+            collection_name=unique_collection_name,
             persist_dir=str(tmp_path),
             embedding_provider=mock_embedding_provider,
         )
