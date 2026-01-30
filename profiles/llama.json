@@ -1,14 +1,11 @@
 {
     "name": "LLama",
-
     "model": "groq/llama-3.3-70b-versatile",
-
     "max_tokens": 4000,
-
     "embedding": {
         "api": "llamacpp",
         "url": "http://127.0.0.1:8081",
         "model": "qwen3-embedding-0.6b-q4_k_m.gguf"
-    }
-    
+    },
+    "extra_prompt": "MODE: PURE CHAT. Do not mention Minecraft, inventory, or health. You are in a meeting room debating a topic."
 }

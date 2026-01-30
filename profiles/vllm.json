@@ -1,10 +1,10 @@
 {
     "name": "vllm",
-
     "model": {
         "api": "vllm",
         "model": "Qwen/Qwen2.5-1.5B-Instruct",
         "url": "http://127.0.0.1:8000/v1"
     },
-    "embedding": "openai"
+    "embedding": "openai",
+    "extra_prompt": "MODE: PURE CHAT. Do not mention Minecraft, inventory, or health. You are in a meeting room debating a topic."
 }

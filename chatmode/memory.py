@@ -102,10 +102,15 @@ class MemoryStore:
             
             # Build where filter if session/agent filtering requested
             query_where = where_filter
-            if session_id and not query_where:
-                query_where = {"session_id": session_id}
-            elif agent_id and not query_where:
-                query_where = {"agent_id": agent_id}
+            if not query_where:
+                query_where = {}
+                if session_id:
+                    query_where["session_id"] = session_id
+                if agent_id:
+                    query_where["agent_id"] = agent_id
+                # Only use the filter if it has content
+                if not query_where:
+                    query_where = None
             
             result = self.collection.query(
                 query_embeddings=embeddings,
@@ -131,12 +136,36 @@ class MemoryStore:
             logger.error(f"Memory query failed: {e}")
             return []
 
-    def clear(self) -> None:
-        """Clear all entries in this collection."""
+    def clear(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> None:
+        """
+        Clear memory entries.
+        
+        Args:
+            session_id: If provided, only clear entries for this session
+            agent_id: If provided, only clear entries for this agent
+            
+        If neither is provided, clears all entries.
+        """
         try:
-            self.client.delete_collection(self.collection_name)
-            self.collection = self.client.get_or_create_collection(name=self.collection_name)
-            logger.info(f"Cleared memory collection: {self.collection_name}")
+            if session_id or agent_id:
+                # Build where filter for selective deletion
+                where_filter = {}
+                if session_id:
+                    where_filter["session_id"] = session_id
+                if agent_id:
+                    where_filter["agent_id"] = agent_id
+                
+                # ChromaDB doesn't support filtered delete easily, so we need to query first
+                # then delete by IDs
+                result = self.collection.get(where=where_filter, include=["metadatas"])
+                if result and result.get("ids"):
+                    self.collection.delete(ids=result["ids"])
+                    logger.info(f"Cleared {len(result['ids'])} memory entries with filter: {where_filter}")
+            else:
+                # Clear entire collection
+                self.client.delete_collection(self.collection_name)
+                self.collection = self.client.get_or_create_collection(name=self.collection_name)
+                logger.info(f"Cleared all memory in collection: {self.collection_name}")
         except Exception as e:
             logger.error(f"Failed to clear memory: {e}")
 

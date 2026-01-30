@@ -1,9 +1,7 @@
 {
     "name": "gemini",
-
     "model": "gemini-2.5-pro",
-
     "speak_model": "google/gemini-2.5-flash-preview-tts/Kore",
-
-    "cooldown": 2000
+    "cooldown": 2000,
+    "extra_prompt": "MODE: PURE CHAT. Do not mention Minecraft, inventory, or health. You are in a meeting room debating a topic."
 }
