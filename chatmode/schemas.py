@@ -12,6 +12,7 @@ from enum import Enum
 # Enums
 # ============================================================================
 
+
 class UserRole(str, Enum):
     ADMIN = "admin"
     MODERATOR = "moderator"
@@ -27,6 +28,7 @@ class SenderType(str, Enum):
 # ============================================================================
 # Authentication
 # ============================================================================
+
 
 class TokenRequest(BaseModel):
     username: str
@@ -66,7 +68,7 @@ class UserResponse(UserBase):
 
 
 class UserListResponse(BaseModel):
-    items: List['UserResponse']
+    items: List["UserResponse"]
     total: int
     page: int
     per_page: int
@@ -76,6 +78,7 @@ class UserListResponse(BaseModel):
 # ============================================================================
 # Agent Settings
 # ============================================================================
+
 
 class VoiceSettingsBase(BaseModel):
     tts_enabled: bool = True
@@ -123,6 +126,13 @@ class PermissionsBase(BaseModel):
     tool_permissions: List[str] = []
     allowed_topics: List[str] = []
     blocked_topics: List[str] = []
+    # Content filter settings
+    filter_enabled: bool = False
+    blocked_words: List[str] = []
+    filter_action: str = Field(default="block", pattern="^(block|warn|censor)$")
+    filter_message: str = (
+        "This message contains inappropriate content and has been blocked."
+    )
     rate_limit_rpm: int = Field(default=60, ge=1)
     rate_limit_tpm: int = Field(default=100000, ge=1)
 
@@ -131,6 +141,11 @@ class PermissionsUpdate(BaseModel):
     tool_permissions: Optional[List[str]] = None
     allowed_topics: Optional[List[str]] = None
     blocked_topics: Optional[List[str]] = None
+    # Content filter settings
+    filter_enabled: Optional[bool] = None
+    blocked_words: Optional[List[str]] = None
+    filter_action: Optional[str] = Field(default=None, pattern="^(block|warn|censor)$")
+    filter_message: Optional[str] = None
     rate_limit_rpm: Optional[int] = Field(default=None, ge=1)
     rate_limit_tpm: Optional[int] = Field(default=None, ge=1)
 
@@ -138,6 +153,7 @@ class PermissionsUpdate(BaseModel):
 # ============================================================================
 # Agents
 # ============================================================================
+
 
 class AgentBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -199,6 +215,7 @@ class AgentListResponse(BaseModel):
 # ============================================================================
 # Conversations & Messages
 # ============================================================================
+
 
 class AudioInfo(BaseModel):
     id: str
@@ -270,6 +287,7 @@ class ConversationListResponse(BaseModel):
 # Voice Assets
 # ============================================================================
 
+
 class VoiceAssetCreate(BaseModel):
     message_id: str
 
@@ -299,6 +317,7 @@ class VoiceAssetListResponse(BaseModel):
 # ============================================================================
 # Audit Log
 # ============================================================================
+
 
 class AuditLogEntry(BaseModel):
     id: str
@@ -331,6 +350,7 @@ class AuditLogListResponse(BaseModel):
 # Status & Health
 # ============================================================================
 
+
 class SessionStatus(BaseModel):
     running: bool
     topic: Optional[str]
@@ -346,6 +366,7 @@ class HealthCheck(BaseModel):
 # ============================================================================
 # Error Response
 # ============================================================================
+
 
 class ErrorDetail(BaseModel):
     code: str

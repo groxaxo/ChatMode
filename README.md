@@ -19,6 +19,7 @@ ChatMode is a Python-based platform for creating rich, multi-agent conversations
 - **🎨 Custom Agent Prompts** – Fine-tune agent behavior with `extra_prompt` and `developer_prompt` fields
 - **💾 Advanced Memory Management** – Per-agent memory settings, session-scoped queries, and API-based memory purging
 - **🔒 Enterprise Security** – Role-based access control, comprehensive audit logging, and API key protection
+- **🛡️ Content Filtering** – Built-in profanity filter with block/censor/warn actions, configurable per-agent
 
 ---
 
@@ -124,6 +125,24 @@ The unified web interface provides:
 ---
 
 ## 🚀 Advanced Features
+
+### Content Filtering
+
+ChatMode includes a built-in content filter to maintain appropriate conversations:
+
+- **Three Actions**: Block (reject), Censor (mask with ***), or Warn (flag but allow)
+- **Per-Agent Rules**: Each agent can have different blocked words and filter settings
+- **Global Toggle**: Enable/disable filtering system-wide from Session Control tab
+- **Easy Configuration**: Configure via Agent Manager tab with comma-separated word lists
+
+**Quick Setup:**
+1. Go to **Agent Manager** tab
+2. Edit an agent and scroll to **Content Filter Settings**
+3. Add blocked words (e.g., "badword1, badword2, phrase")
+4. Choose filter action: Block, Censor, or Warn
+5. Use the **Content Filter** card in Session Control to toggle on/off
+
+See [Content Filter Documentation](docs/CONTENT_FILTER.md) for complete details.
 
 ### MCP Tool Integration
 

@@ -7,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from chatmode.config import load_settings
 from chatmode.session import ChatSession
-from chatmode.database import init_db
+from chatmode.database import init_db, get_db
+from chatmode.content_filter import ContentFilter, create_filter_from_permissions
+from chatmode import crud
 
 
 app = FastAPI(
@@ -25,6 +27,45 @@ chat_session = ChatSession(settings)
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    # Load content filter settings from first enabled agent
+    setup_content_filter()
+
+
+def setup_content_filter():
+    """Load content filter settings from database and apply to session."""
+    try:
+        db = next(get_db())
+        # Get first enabled agent with permissions
+        agents, _ = crud.get_agents(db, page=1, per_page=1, enabled=True)
+        if agents and agents[0].permissions:
+            filter_instance = create_filter_from_permissions(
+                {
+                    "filter_enabled": agents[0].permissions.filter_enabled,
+                    "blocked_words": agents[0].permissions.blocked_words,
+                    "filter_action": agents[0].permissions.filter_action,
+                    "filter_message": agents[0].permissions.filter_message,
+                }
+            )
+            chat_session.set_content_filter(filter_instance)
+            print(f"Content filter loaded from agent '{agents[0].name}'")
+            print(f"  Enabled: {filter_instance.enabled}")
+            print(f"  Blocked words: {len(filter_instance.blocked_words)} words")
+            print(f"  Action: {filter_instance.action}")
+        else:
+            # No filter configured - create disabled filter
+            default_filter = ContentFilter(
+                enabled=False,
+                blocked_words=[],
+                action="block",
+                filter_message="This message contains inappropriate content and has been blocked.",
+            )
+            chat_session.set_content_filter(default_filter)
+            print("Content filter is disabled by default")
+    except Exception as e:
+        print(f"Warning: Could not load content filter: {e}")
+        # Set a disabled filter
+        default_filter = ContentFilter(enabled=False)
+        chat_session.set_content_filter(default_filter)
 
 
 # Add CORS for Vite frontend
@@ -114,8 +155,71 @@ def resume_session():
 
 @app.post("/messages")
 def send_message(content: str = Form(...), sender: str = Form("Admin")):
+    # Apply content filter if configured
+    if chat_session.content_filter:
+        allowed, filtered_content, message = chat_session.content_filter.filter_content(
+            content
+        )
+        if not allowed:
+            return JSONResponse(
+                {
+                    "status": "blocked",
+                    "message": message
+                    or "Message blocked due to inappropriate content",
+                },
+                status_code=400,
+            )
+        content = filtered_content
     chat_session.inject_message(sender, content)
     return {"status": "sent"}
+
+
+@app.post("/filter/reload")
+def reload_filter():
+    """Reload content filter settings from database."""
+    try:
+        setup_content_filter()
+        return {"status": "filter_reloaded"}
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@app.post("/filter/toggle")
+def toggle_filter(request: Request):
+    """Toggle content filter on/off globally."""
+    try:
+        import json
+
+        body = json.loads(request.body())
+        enabled = body.get("enabled", True)
+
+        if chat_session.content_filter:
+            chat_session.content_filter.enabled = enabled
+            return {
+                "status": "filter_toggled",
+                "enabled": enabled,
+                "message": f"Content filter {'enabled' if enabled else 'disabled'}",
+            }
+        else:
+            return JSONResponse(
+                {"status": "error", "message": "No content filter configured"},
+                status_code=400,
+            )
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@app.get("/filter/status")
+def get_filter_status():
+    """Get current content filter status."""
+    if chat_session.content_filter:
+        return {
+            "enabled": chat_session.content_filter.enabled,
+            "action": chat_session.content_filter.action,
+            "blocked_words_count": len(chat_session.content_filter.blocked_words),
+        }
+    else:
+        return {"enabled": False, "message": "No filter configured"}
 
 
 @app.get("/status")

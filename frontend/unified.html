@@ -566,6 +566,21 @@
             <h2>System Info</h2>
             <p class="hint">Auto-polling /status every 2 seconds. Agent manager available via Gradio interface.</p>
           </section>
+
+          <section class="card">
+            <h2>Content Filter</h2>
+            <div class="field">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input id="global-filter-toggle" type="checkbox" />
+                <span>Enable Content Filter</span>
+              </label>
+            </div>
+            <div id="filter-status" class="hint" style="margin-top: 8px; color: var(--danger);">
+              Filter is disabled
+            </div>
+            <button class="btn full" id="reload-filter-btn" style="margin-top: 12px;">Reload Filter Settings</button>
+            <p class="hint" style="margin-top: 8px;">Configure filter rules per-agent in the Agent Manager tab. Filter is OFF by default.</p>
+          </section>
         </div>
 
         <section class="card feed-card">
@@ -702,6 +717,37 @@
                   <input id="form-agent-enabled" type="checkbox" checked />
                   <span>Enabled</span>
                 </label>
+              </div>
+
+              <!-- Content Filter Section -->
+              <div style="border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px;">
+                <h3 style="margin-bottom: 12px; font-size: 1rem; color: var(--accent);">Content Filter Settings</h3>
+
+                <div class="field">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input id="form-agent-filter-enabled" type="checkbox" />
+                    <span>Enable Content Filter</span>
+                  </label>
+                </div>
+
+                <div class="field">
+                  <label for="form-agent-blocked-words">Blocked Words/Phrases (comma-separated)</label>
+                  <textarea id="form-agent-blocked-words" placeholder="badword1, badword2, inappropriate phrase"></textarea>
+                </div>
+
+                <div class="field">
+                  <label for="form-agent-filter-action">Filter Action</label>
+                  <select id="form-agent-filter-action" style="width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px;">
+                    <option value="block">Block - Reject message entirely</option>
+                    <option value="censor">Censor - Replace with asterisks</option>
+                    <option value="warn">Warn - Allow but flag</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="form-agent-filter-message">Filter Message (shown when content is blocked)</label>
+                  <textarea id="form-agent-filter-message" placeholder="This message contains inappropriate content and has been blocked."></textarea>
+                </div>
               </div>
             </div>
             <div class="modal-footer">
@@ -1015,6 +1061,61 @@
       }
     });
 
+    // Content Filter Controls
+    const filterToggle = document.getElementById('global-filter-toggle');
+    const filterStatus = document.getElementById('filter-status');
+
+    // Load filter status from localStorage
+    const savedFilterState = localStorage.getItem('chatmode_filter_enabled');
+    if (savedFilterState !== null) {
+      filterToggle.checked = savedFilterState === 'true';
+      updateFilterStatus(filterToggle.checked);
+    }
+
+    function updateFilterStatus(enabled) {
+      if (enabled) {
+        filterStatus.textContent = 'Filter is active';
+        filterStatus.style.color = 'var(--success)';
+      } else {
+        filterStatus.textContent = 'Filter is disabled';
+        filterStatus.style.color = 'var(--danger)';
+      }
+    }
+
+    filterToggle.addEventListener('change', async () => {
+      const enabled = filterToggle.checked;
+      localStorage.setItem('chatmode_filter_enabled', enabled);
+      updateFilterStatus(enabled);
+
+      // Send toggle request to server
+      try {
+        const res = await fetch('/filter/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled })
+        });
+        if (!res.ok) throw new Error('Failed to toggle filter');
+        const data = await res.json();
+        console.log('Filter toggled:', data);
+      } catch (err) {
+        console.error('Error toggling filter:', err);
+        alert('Failed to update filter. Server may not support this feature yet.');
+      }
+    });
+
+    document.getElementById('reload-filter-btn').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/filter/reload', { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to reload filter');
+        const data = await res.json();
+        alert('Filter settings reloaded successfully!');
+        console.log('Filter reloaded:', data);
+      } catch (err) {
+        console.error('Error reloading filter:', err);
+        alert('Failed to reload filter settings.');
+      }
+    });
+
     refreshStatus();
     setInterval(refreshStatus, 2000);
 
@@ -1186,6 +1287,11 @@
       document.getElementById('form-agent-temperature').value = '0.7';
       document.getElementById('form-agent-max-tokens').value = '4096';
       document.getElementById('form-agent-enabled').checked = true;
+      // Reset filter fields (disabled by default)
+      document.getElementById('form-agent-filter-enabled').checked = false;
+      document.getElementById('form-agent-blocked-words').value = '';
+      document.getElementById('form-agent-filter-action').value = 'block';
+      document.getElementById('form-agent-filter-message').value = '';
       document.getElementById('agent-modal').style.display = 'flex';
     }
 
@@ -1209,6 +1315,13 @@
       document.getElementById('form-agent-temperature').value = agent.temperature || 0.7;
       document.getElementById('form-agent-max-tokens').value = agent.max_tokens || 4096;
       document.getElementById('form-agent-enabled').checked = agent.enabled !== false;
+
+      // Load filter settings (disabled by default)
+      const perms = agent.permissions || {};
+      document.getElementById('form-agent-filter-enabled').checked = perms.filter_enabled === true;
+      document.getElementById('form-agent-blocked-words').value = (perms.blocked_words || []).join(', ');
+      document.getElementById('form-agent-filter-action').value = perms.filter_action || 'block';
+      document.getElementById('form-agent-filter-message').value = perms.filter_message || '';
 
       document.getElementById('agent-modal').style.display = 'flex';
     }
@@ -1273,7 +1386,7 @@
       };
 
       const method = editingAgentId ? 'PUT' : 'POST';
-      const endpoint = editingAgentId 
+      const endpoint = editingAgentId
         ? `/api/v1/agents/${editingAgentId}`
         : '/api/v1/agents/';
 
@@ -1286,6 +1399,31 @@
         const err = await res.json();
         alert(`Failed to save agent: ${err.detail?.message || 'Unknown error'}`);
         return;
+      }
+
+      const savedAgent = await res.json();
+      const agentId = editingAgentId || savedAgent.id;
+
+      // Save filter/permissions settings
+      const blockedWordsRaw = document.getElementById('form-agent-blocked-words').value.trim();
+      const blockedWords = blockedWordsRaw
+        ? blockedWordsRaw.split(',').map(w => w.trim()).filter(w => w)
+        : [];
+
+      const permissionsData = {
+        filter_enabled: document.getElementById('form-agent-filter-enabled').checked,
+        blocked_words: blockedWords,
+        filter_action: document.getElementById('form-agent-filter-action').value,
+        filter_message: document.getElementById('form-agent-filter-message').value.trim() || null
+      };
+
+      const permsRes = await agentApiCall(`/api/v1/agents/${agentId}/permissions`, {
+        method: 'PUT',
+        body: JSON.stringify(permissionsData)
+      });
+
+      if (!permsRes || !permsRes.ok) {
+        console.warn('Failed to save permissions, but agent was saved');
       }
 
       document.getElementById('agent-modal').style.display = 'none';

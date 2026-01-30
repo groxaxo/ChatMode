@@ -322,6 +322,72 @@ Changes apply to the next session start.
 
 The profile file is removed from `profiles/` and the agent is removed from `agent_config.json`.
 
+---
+
+## Content Filter Configuration
+
+Each agent can have its own content filter settings to control inappropriate language and content.
+
+### Configuring Filter (Web UI)
+
+1. Go to **Agent Manager** tab
+2. Click **Create Agent** or **Edit** an existing agent
+3. Scroll to the **Content Filter Settings** section
+4. Configure options:
+   - **Enable Content Filter** - Master on/off switch
+   - **Blocked Words/Phrases** - Comma-separated list (e.g., "word1, word2, bad phrase")
+   - **Filter Action** - Choose: Block, Censor, or Warn
+   - **Filter Message** - Custom message shown when content is blocked
+
+### Filter Actions
+
+| Action | Behavior | Use Case |
+|--------|----------|----------|
+| **Block** | Rejects message entirely | Strict moderation |
+| **Censor** | Replaces words with asterisks | Adult-friendly spaces |
+| **Warn** | Allows with warning notice | Self-moderated communities |
+
+### Example Filter Configurations
+
+**Strict (Educational Environment):**
+```
+Enable Content Filter: ☑
+Blocked Words: profanity1, profanity2, inappropriate phrase
+Filter Action: Block
+Filter Message: This content violates our community guidelines.
+```
+
+**Moderate (General Use):**
+```
+Enable Content Filter: ☑
+Blocked Words: badword1, badword2
+Filter Action: Censor
+```
+
+**Disabled (Private/Adult Use):**
+```
+Enable Content Filter: ☐
+```
+
+### Default State
+
+**Content filtering is OFF by default.** New agents start with the filter disabled, ensuring you have full control over when to enable it.
+
+To enable filtering:
+- **Per-agent**: Check "Enable Content Filter" in Agent Manager when creating/editing an agent
+- **Global**: Use the Content Filter card in Session Control tab to toggle system-wide
+
+### Global Filter Toggle
+
+A global on/off switch is available in the **Session Control** tab:
+- Quickly enable/disable filtering without changing agent settings
+- Persists across page reloads (saved in browser)
+- Affects all messages in the current session
+
+For detailed filter documentation, see [Content Filter](./CONTENT_FILTER.md).
+
+---
+
 ### Managing Agents (File System)
 
 **Create Profile:**

@@ -8,6 +8,7 @@ from typing import List, Dict, Optional
 from .agent import ChatAgent
 from .admin import AdminAgent
 from .config import Settings
+from .content_filter import ContentFilter, create_filter_from_permissions
 
 
 def load_agents(settings: Settings) -> List[ChatAgent]:
@@ -40,6 +41,9 @@ class ChatSession:
         self.agents: List[ChatAgent] = []
         self.session_id: Optional[str] = None  # Track current session ID
         self.admin_agent: Optional[AdminAgent] = None  # For solo agent mode
+        self.content_filter: Optional[ContentFilter] = (
+            None  # Content filter for all messages
+        )
 
     def start(self, topic: str) -> bool:
         with self._lock:
@@ -93,9 +97,29 @@ class ChatSession:
         with self._lock:
             return self._running
 
-    def inject_message(self, sender: str, content: str):
+    def inject_message(
+        self, sender: str, content: str, permissions: Optional[Dict] = None
+    ):
         # Admin injection
         # We append to history so agents see it in context.
+        # Apply content filtering if permissions provided
+        if permissions:
+            filter_instance = create_filter_from_permissions(permissions)
+            allowed, filtered_content, message = filter_instance.filter_content(content)
+            if not allowed:
+                # Content blocked - add a system message instead
+                entry = {
+                    "sender": "System",
+                    "content": message
+                    or "This message has been blocked due to inappropriate content.",
+                }
+                self.history.append(entry)
+                self.last_messages.append(entry)
+                if len(self.last_messages) > 8:
+                    self.last_messages.pop(0)
+                return
+            content = filtered_content
+
         with self._lock:
             entry = {"sender": sender, "content": content}
             self.history.append(entry)
@@ -164,11 +188,22 @@ class ChatSession:
                 if not self.is_running():
                     break
                 response, audio_path = agent.generate_response(self.topic, self.history)
-                entry = {
-                    "sender": agent.full_name,
-                    "content": response,
-                    "audio": audio_path,
-                }
+
+                # Apply content filter to agent response
+                allowed, filtered_response, filter_msg = self._filter_response(response)
+                if not allowed:
+                    # Content blocked - add system message instead
+                    entry = {
+                        "sender": "System",
+                        "content": filter_msg
+                        or "[Agent message blocked due to inappropriate content]",
+                    }
+                else:
+                    entry = {
+                        "sender": agent.full_name,
+                        "content": filtered_response,
+                        "audio": audio_path,
+                    }
                 self.history.append(entry)
                 self.last_messages.append(entry)
                 if len(self.last_messages) > 8:
@@ -221,11 +256,24 @@ class ChatSession:
                     response, audio_path = agent.generate_response(
                         self.topic, self.history
                     )
-                    entry = {
-                        "sender": agent.full_name,
-                        "content": response,
-                        "audio": audio_path,
-                    }
+
+                    # Apply content filter to agent response
+                    allowed, filtered_response, filter_msg = self._filter_response(
+                        response
+                    )
+                    if not allowed:
+                        # Content blocked - add system message instead
+                        entry = {
+                            "sender": "System",
+                            "content": filter_msg
+                            or f"[{agent.full_name}'s message blocked due to inappropriate content]",
+                        }
+                    else:
+                        entry = {
+                            "sender": agent.full_name,
+                            "content": filtered_response,
+                            "audio": audio_path,
+                        }
                     self.history.append(entry)
                     self.last_messages.append(entry)
                     if len(self.last_messages) > 8:
@@ -264,3 +312,19 @@ class ChatSession:
         with self._lock:
             self.history = []
             self.last_messages = []
+
+    def set_content_filter(self, filter_instance: Optional[ContentFilter]):
+        """Set a content filter for all messages in this session."""
+        self.content_filter = filter_instance
+
+    def _filter_response(self, response: str) -> tuple:
+        """
+        Filter agent response through content filter.
+
+        Returns:
+            Tuple of (allowed, filtered_content, message)
+        """
+        if not self.content_filter:
+            return True, response, None
+
+        return self.content_filter.filter_content(response)
