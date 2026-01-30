@@ -11,6 +11,7 @@ import json
 import asyncio
 
 from ..session import ChatSession
+from ..state_sync import sync_profiles_from_db
 from ..config import Settings
 from ..auth import get_current_user, require_role
 from ..models import User
@@ -400,6 +401,34 @@ async def call_mcp_tool(
             },
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent")
+
+        @router.post("/state/sync")
+        async def sync_state(
+            request: Request,
+            session: ChatSession = Depends(get_chat_session),
+            current_user: User = Depends(require_role(["admin", "moderator"])),
+            db: Session = Depends(get_db),
+        ):
+            """Synchronize agent state across DB, profiles, memory, and MCP."""
+            profile_sync = sync_profiles_from_db(db=db, include_disabled=False)
+            runtime_state = await session.sync_state()
+
+            log_action(
+                db=db,
+                user=current_user,
+                action=AuditAction.AGENT_UPDATE,
+                resource_type="state_sync",
+                resource_id=session.session_id or "none",
+                changes={"profile_sync": profile_sync, "agent_count": len(session.agents)},
+                ip_address=get_client_ip(request),
+                user_agent=request.headers.get("user-agent"),
+            )
+
+            return {
+                "status": "synced",
+                "profiles": profile_sync,
+                "agent_states": runtime_state,
+            }
         )
         
         return {

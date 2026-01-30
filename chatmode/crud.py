@@ -134,6 +134,7 @@ def create_agent(
         max_tokens=agent_data.max_tokens,
         top_p=agent_data.top_p,
         stop_sequences=agent_data.stop_sequences,
+        sleep_seconds=agent_data.sleep_seconds,
         enabled=agent_data.enabled,
         created_by=created_by,
         updated_by=created_by

@@ -22,6 +22,7 @@ class ChatAgent:
     def __init__(self, name: str, config_file: str, settings: Settings):
         self.name = name
         self.settings = settings
+        self.config_file = config_file
         logger.debug(f"🤖 Initializing ChatAgent: {name}")
 
         self.load_profile(config_file)
@@ -74,14 +75,27 @@ class ChatAgent:
         logger.info(f"✅ ChatAgent '{name}' initialized successfully")
 
     def load_profile(self, config_file: str) -> None:
+        import os
         with open(config_file, "r") as f:
             data = json.load(f)
         self.full_name = data.get("name", self.name)
         self.model = data.get("model")
         self.api = data.get("api", "ollama")
         self.api_url = data.get("url")
+        
+        # Support api_key directly or from environment variable via api_key_env
         self.api_key = data.get("api_key")
+        if not self.api_key and data.get("api_key_env"):
+            self.api_key = os.getenv(data.get("api_key_env"))
+        
         self.params = data.get("params", {})
+
+        # Per-agent overrides
+        self.sleep_seconds = data.get("sleep_seconds")
+        self.temperature_override = data.get("temperature")
+        self.max_output_tokens_override = data.get(
+            "max_output_tokens", data.get("max_tokens")
+        )
 
         self.system_prompt = clean_placeholders(data.get("conversing", ""))
 
@@ -106,6 +120,47 @@ class ChatAgent:
         else:
             self.tts_model_override = None
             self.tts_voice_override = None
+
+    def get_sleep_seconds(self, default: float) -> float:
+        """Get per-agent sleep seconds with fallback to global default."""
+        if isinstance(self.sleep_seconds, (int, float)):
+            return float(self.sleep_seconds)
+        return float(default)
+
+    def sync_from_profile(self) -> None:
+        """Reload profile and reinitialize providers if configuration changed."""
+        prev_api = self.api
+        prev_api_url = self.api_url
+        prev_api_key = self.api_key
+        prev_mcp_command = self.mcp_command
+        prev_mcp_args = list(self.mcp_args or [])
+
+        self.load_profile(self.config_file)
+        if not self.api_url:
+            self.api_url = (
+                self.settings.ollama_base_url
+                if self.api == "ollama"
+                else self.settings.openai_base_url
+            )
+
+        api_changed = (
+            self.api != prev_api
+            or self.api_url != prev_api_url
+            or self.api_key != prev_api_key
+        )
+        if api_changed:
+            logger.debug(
+                f"🔄 Rebuilding chat provider for {self.name} due to API changes"
+            )
+            self.chat_provider = build_chat_provider(
+                provider=self.api,
+                base_url=self.api_url,
+                api_key=self.api_key or self.settings.openai_api_key,
+            )
+
+        if self.mcp_command != prev_mcp_command or self.mcp_args != prev_mcp_args:
+            self.mcp_client = None
+            self._init_mcp_client()
 
     def _init_mcp_client(self) -> None:
         """Initialize MCP client if configured."""
@@ -214,11 +269,22 @@ class ChatAgent:
             except Exception as e:
                 print(f"Warning: Failed to get MCP tools: {e}")
 
+        temperature = (
+            self.temperature_override
+            if isinstance(self.temperature_override, (int, float))
+            else self.settings.temperature
+        )
+        max_tokens = (
+            int(self.max_output_tokens_override)
+            if isinstance(self.max_output_tokens_override, (int, float))
+            else self.settings.max_output_tokens
+        )
+
         completion = self.chat_provider.chat(
             model=self.model or self.settings.default_chat_model,
             messages=messages,
-            temperature=self.settings.temperature,
-            max_tokens=self.settings.max_output_tokens,
+            temperature=temperature,
+            max_tokens=max_tokens,
             options=self.params,
             tools=tools,
             tool_choice="auto" if tools else None,
@@ -291,8 +357,8 @@ class ChatAgent:
             completion = self.chat_provider.chat(
                 model=self.model or self.settings.default_chat_model,
                 messages=messages,
-                temperature=self.settings.temperature,
-                max_tokens=self.settings.max_output_tokens,
+                temperature=temperature,
+                max_tokens=max_tokens,
                 options=self.params,
                 # Explicitly no tools on second call
             )

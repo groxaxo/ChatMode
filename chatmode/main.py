@@ -6,6 +6,7 @@ Combines all routes and serves the unified frontend.
 """
 
 import os
+import logging
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles

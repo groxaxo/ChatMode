@@ -11,11 +11,15 @@ from .conversations import router as conversations_router
 from .users import router as users_router
 from .audit_routes import router as audit_router
 from .advanced import router as advanced_router
+from .providers import router as providers_router
+from .env_config import router as env_config_router
 
 # List of all routers for easy registration
 all_routers = [
     auth_router,
     agents_router,
+    providers_router,
+    env_config_router,
     audio_router,
     conversations_router,
     users_router,
@@ -25,11 +29,13 @@ all_routers = [
 
 __all__ = [
     "agents_router",
-    "auth_router", 
+    "auth_router",
     "audio_router",
     "conversations_router",
     "users_router",
     "audit_router",
     "advanced_router",
-    "all_routers"
+    "providers_router",
+    "env_config_router",
+    "all_routers",
 ]

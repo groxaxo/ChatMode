@@ -93,6 +93,7 @@ class Agent(Base):
     max_tokens = Column(Integer, default=512)
     top_p = Column(Float, default=1.0)
     stop_sequences = Column(JSON, default=list)
+    sleep_seconds = Column(Float, nullable=True)
 
     # Status
     enabled = Column(Boolean, default=True, index=True)
@@ -366,6 +367,104 @@ class VoiceAsset(Base):
 
     def __repr__(self):
         return f"<VoiceAsset {self.filename} ({self.duration_seconds}s)>"
+
+
+class Provider(Base):
+    """LLM provider configuration with auto-discovery."""
+
+    __tablename__ = "providers"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    display_name = Column(String(200), nullable=True)
+
+    # Provider type: openai, ollama, fireworks, deepseek, xai, anthropic, etc.
+    provider_type = Column(String(50), nullable=False, default="openai")
+
+    # Connection settings
+    base_url = Column(String(500), nullable=False)
+    api_key_encrypted = Column(String(500), nullable=True)
+
+    # Auto-discovery settings
+    auto_sync_enabled = Column(Boolean, default=True)
+    last_sync_at = Column(DateTime, nullable=True)
+    sync_status = Column(
+        String(50), default="pending"
+    )  # pending, syncing, success, error
+    sync_error = Column(Text, nullable=True)
+
+    # Provider metadata
+    supports_tools = Column(Boolean, default=True)
+    supports_embeddings = Column(Boolean, default=False)
+    headers = Column(JSON, default=dict)  # Additional headers for API requests
+
+    # Status
+    enabled = Column(Boolean, default=True, index=True)
+    is_default = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    models = relationship(
+        "ProviderModel",
+        back_populates="provider",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
+    def __repr__(self):
+        return f"<Provider {self.name} ({self.provider_type})>"
+
+
+class ProviderModel(Base):
+    """Individual model available from a provider."""
+
+    __tablename__ = "provider_models"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    provider_id = Column(
+        String(36),
+        ForeignKey("providers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Model identification
+    model_id = Column(
+        String(200), nullable=False
+    )  # The actual model ID used in API calls
+    display_name = Column(String(200), nullable=True)
+
+    # Capabilities
+    supports_tools = Column(Boolean, default=True)
+    supports_vision = Column(Boolean, default=False)
+    supports_embeddings = Column(Boolean, default=False)
+    context_window = Column(Integer, nullable=True)
+    max_tokens = Column(Integer, nullable=True)
+
+    # Model metadata
+    description = Column(Text, nullable=True)
+    model_metadata = Column(JSON, default=dict)  # Additional provider-specific metadata
+
+    # Status
+    enabled = Column(Boolean, default=True, index=True)
+    is_default = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    provider = relationship("Provider", back_populates="models")
+
+    __table_args__ = (
+        UniqueConstraint("provider_id", "model_id", name="unique_provider_model"),
+    )
+
+    def __repr__(self):
+        return f"<ProviderModel {self.model_id} ({self.provider.name})>"
 
 
 class AuditLog(Base):

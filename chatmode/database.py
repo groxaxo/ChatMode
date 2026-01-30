@@ -4,7 +4,7 @@ Database connection and session management.
 
 import os
 from contextlib import contextmanager
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
@@ -86,7 +86,21 @@ def init_db():
     
     # Create all tables
     create_all_tables(engine)
+    _apply_sqlite_migrations()
     print(f"Database initialized: {DATABASE_URL}")
+
+
+def _apply_sqlite_migrations() -> None:
+    """Apply lightweight SQLite migrations for new columns."""
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    with engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(agents)"))
+        columns = {row[1] for row in result.fetchall()}
+        if "sleep_seconds" not in columns:
+            conn.execute(text("ALTER TABLE agents ADD COLUMN sleep_seconds FLOAT"))
+            conn.commit()
 
 
 def test_connection():

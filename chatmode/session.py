@@ -238,8 +238,61 @@ class ChatSession:
         return await self.state_manager.restart_agent(agent_name)
 
     async def get_agent_states(self) -> Dict[str, dict]:
-        """Get states of all agents."""
-        return await self.state_manager.get_states_dict()
+        """Get states of all agents with runtime details."""
+        base_states = await self.state_manager.get_states_dict()
+        agents_by_name = {agent.name: agent for agent in self.agents}
+
+        for name, state in base_states.items():
+            agent = agents_by_name.get(name)
+            if not agent:
+                continue
+
+            memory_count = None
+            try:
+                memory_count = agent.memory.count()
+            except Exception:
+                memory_count = None
+
+            state["runtime"] = {
+                "sleep_seconds": agent.get_sleep_seconds(self.settings.sleep_seconds),
+                "memory": {
+                    "count": memory_count,
+                    "top_k": agent.memory_top_k
+                    if agent.memory_top_k is not None
+                    else self.settings.memory_top_k,
+                },
+                "mcp": {
+                    "configured": bool(agent.mcp_client),
+                    "allowed_tools": agent.allowed_tools or [],
+                    "tools_cached": getattr(agent.mcp_client, "_tools_cache", None)
+                    if agent.mcp_client
+                    else None,
+                },
+            }
+
+        return base_states
+
+    async def sync_state(self) -> Dict[str, dict]:
+        """Synchronize agent runtime state across memory/MCP integrations."""
+        # Sync each agent from profile
+        for agent in self.agents:
+            try:
+                agent.sync_from_profile()
+                if agent.mcp_client:
+                    await agent.mcp_client.list_tools()
+            except Exception as exc:
+                logger.error(f"Failed to sync agent {agent.name}: {exc}")
+
+        # Register any missing agents and unregister stale ones
+        active_names = {agent.name for agent in self.agents}
+        current_states = await self.state_manager.get_states_dict()
+        for agent_name in active_names:
+            await self.state_manager.register_agent(agent_name)
+
+        for stale_name in set(current_states.keys()) - active_names:
+            await self.state_manager.unregister_agent(stale_name)
+
+        return await self.get_agent_states()
 
     async def get_active_agents(self) -> Set[str]:
         """Get set of currently active agent names."""
@@ -465,9 +518,6 @@ class ChatSession:
 
                 round_num += 1
 
-                # Sleep between rounds
-                await asyncio.sleep(self.settings.sleep_seconds)
-
         except asyncio.CancelledError:
             logger.info("Session loop cancelled")
             raise
@@ -515,6 +565,10 @@ class ChatSession:
         # Summarize if needed
         await self._maybe_summarize()
 
+        # Sleep after solo turn based on agent override
+        if self._running:
+            await asyncio.sleep(agent.get_sleep_seconds(self.settings.sleep_seconds))
+
     async def _run_multi_agent_mode(self, active_agents: Set[str]) -> None:
         """Run multi-agent mode (all agents take turns)."""
         for agent in list(self.agents):
@@ -537,6 +591,10 @@ class ChatSession:
 
             # Summarize if needed
             await self._maybe_summarize()
+
+            # Sleep after each agent turn using per-agent override
+            if self._running:
+                await asyncio.sleep(agent.get_sleep_seconds(self.settings.sleep_seconds))
 
     async def _maybe_summarize(self) -> None:
         """Summarize old messages if history exceeds limit."""

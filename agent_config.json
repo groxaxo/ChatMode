@@ -1,20 +1,16 @@
 {
   "agents": [
     {
-      "name": "lawyer",
-      "file": "/home/op/ChatMode/profiles/lawyer.json"
+      "name": "sunny",
+      "file": "/home/op/ChatMode/profiles/sunny.json"
     },
     {
-      "name": "crook",
-      "file": "/home/op/ChatMode/profiles/crook.json"
+      "name": "jolly",
+      "file": "/home/op/ChatMode/profiles/jolly.json"
     },
     {
-      "name": "prostitute",
-      "file": "/home/op/ChatMode/profiles/prostitute.json"
-    },
-    {
-      "name": "church_woman",
-      "file": "/home/op/ChatMode/profiles/church_woman.json"
+      "name": "bubbly",
+      "file": "/home/op/ChatMode/profiles/bubbly.json"
     }
   ]
 }

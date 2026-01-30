@@ -565,6 +565,13 @@
           <section class="card">
             <h2>System Info</h2>
             <p class="hint">Auto-polling /status every 2 seconds. Agent manager available via Gradio interface.</p>
+            <div class="field" style="margin-top: 12px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input id="auto-scroll-toggle" type="checkbox" />
+                <span>Enable Auto-Scroll</span>
+              </label>
+            </div>
+            <p class="hint" style="margin-top: 4px; font-size: 0.75rem;">When enabled, chat will scroll to newest messages automatically.</p>
           </section>
 
           <section class="card">
@@ -662,6 +669,7 @@
               <div class="btn-row">
                 <button class="btn" id="create-agent-btn">Create Agent</button>
                 <button class="btn" id="refresh-agents-btn">Refresh</button>
+                <button class="btn" id="sync-state-btn">Sync State</button>
               </div>
             </section>
           </div>
@@ -673,6 +681,19 @@
             </div>
           </section>
         </div>
+
+        <section class="card" style="margin-top: 20px;">
+          <h2>Environment Config</h2>
+          <p class="hint">Read and update application .env settings. Changes apply on next restart or reload.</p>
+          <div class="btn-row" style="margin-top: 12px;">
+            <button class="btn" id="env-load-btn">Load .env</button>
+            <button class="btn" id="env-save-btn">Save .env</button>
+          </div>
+          <div class="field" style="margin-top: 12px;">
+            <label for="env-content">.env Contents</label>
+            <textarea id="env-content" placeholder="Click Load to view .env" style="min-height: 240px;"></textarea>
+          </div>
+        </section>
       </div>
 
       <!-- Agent Edit/Create Modal -->
@@ -711,6 +732,10 @@
               <div class="field">
                 <label for="form-agent-max-tokens">Max Tokens</label>
                 <input id="form-agent-max-tokens" type="number" min="1" value="4096" />
+              </div>
+              <div class="field">
+                <label for="form-agent-sleep-seconds">Sleep Seconds (per agent)</label>
+                <input id="form-agent-sleep-seconds" type="number" min="0" step="0.1" placeholder="Use global" />
               </div>
               <div class="field">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -868,7 +893,11 @@
         container.appendChild(card);
       });
 
-      container.scrollTop = container.scrollHeight;
+      // Only auto-scroll if toggle is enabled
+      const autoScrollEnabled = document.getElementById('auto-scroll-toggle')?.checked || false;
+      if (autoScrollEnabled) {
+        container.scrollTop = container.scrollHeight;
+      }
     }
 
     // Track connection state for reconnect logic
@@ -1253,6 +1282,7 @@
           <div class="agent-row-meta">
             <span>Model: ${agent.model}</span>
             <span>Provider: ${agent.provider || 'openai'}</span>
+            <span>Sleep: ${agent.sleep_seconds ?? 'global'}s</span>
             <span>Status: ${enabledBadge}</span>
           </div>
         `;
@@ -1277,6 +1307,17 @@
     // Refresh agents button
     document.getElementById('refresh-agents-btn').addEventListener('click', loadAgentManagerList);
 
+    // Sync state button
+    document.getElementById('sync-state-btn').addEventListener('click', async () => {
+      const res = await agentApiCall('/api/v1/state/sync', { method: 'POST' });
+      if (!res || !res.ok) {
+        alert('Failed to sync state.');
+        return;
+      }
+      alert('State synchronized successfully.');
+      loadAgentManagerList();
+    });
+
     // Create agent button
     document.getElementById('create-agent-btn').addEventListener('click', openCreateAgentModal);
 
@@ -1286,6 +1327,7 @@
       document.getElementById('agent-form').reset();
       document.getElementById('form-agent-temperature').value = '0.7';
       document.getElementById('form-agent-max-tokens').value = '4096';
+      document.getElementById('form-agent-sleep-seconds').value = '';
       document.getElementById('form-agent-enabled').checked = true;
       // Reset filter fields (disabled by default)
       document.getElementById('form-agent-filter-enabled').checked = false;
@@ -1314,6 +1356,7 @@
       document.getElementById('form-agent-system-prompt').value = agent.system_prompt || '';
       document.getElementById('form-agent-temperature').value = agent.temperature || 0.7;
       document.getElementById('form-agent-max-tokens').value = agent.max_tokens || 4096;
+      document.getElementById('form-agent-sleep-seconds').value = agent.sleep_seconds ?? '';
       document.getElementById('form-agent-enabled').checked = agent.enabled !== false;
 
       // Load filter settings (disabled by default)
@@ -1382,6 +1425,9 @@
         system_prompt: document.getElementById('form-agent-system-prompt').value.trim() || null,
         temperature: parseFloat(document.getElementById('form-agent-temperature').value) || 0.7,
         max_tokens: parseInt(document.getElementById('form-agent-max-tokens').value) || 4096,
+        sleep_seconds: document.getElementById('form-agent-sleep-seconds').value.trim() === ''
+          ? null
+          : parseFloat(document.getElementById('form-agent-sleep-seconds').value),
         enabled: document.getElementById('form-agent-enabled').checked
       };
 
@@ -1429,6 +1475,30 @@
       document.getElementById('agent-modal').style.display = 'none';
       alert(editingAgentId ? 'Agent updated successfully.' : 'Agent created successfully.');
       loadAgentManagerList();
+    });
+
+    // Env config load/save
+    document.getElementById('env-load-btn').addEventListener('click', async () => {
+      const res = await agentApiCall('/api/v1/config/env');
+      if (!res || !res.ok) {
+        alert('Failed to load .env');
+        return;
+      }
+      const data = await res.json();
+      document.getElementById('env-content').value = data.content || '';
+    });
+
+    document.getElementById('env-save-btn').addEventListener('click', async () => {
+      const content = document.getElementById('env-content').value;
+      const res = await agentApiCall('/api/v1/config/env', {
+        method: 'PUT',
+        body: JSON.stringify({ content })
+      });
+      if (!res || !res.ok) {
+        alert('Failed to save .env');
+        return;
+      }
+      alert('.env saved successfully.');
     });
 
     // Click outside modal to close

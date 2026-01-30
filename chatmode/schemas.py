@@ -184,6 +184,7 @@ class AgentBase(BaseModel):
     max_tokens: int = Field(default=512, ge=1, le=128000)
     top_p: float = Field(default=1.0, ge=0.0, le=1.0)
     stop_sequences: List[str] = []
+    sleep_seconds: Optional[float] = Field(default=None, ge=0.0)
     enabled: bool = True
 
 
@@ -206,6 +207,7 @@ class AgentUpdate(BaseModel):
     max_tokens: Optional[int] = Field(default=None, ge=1, le=128000)
     top_p: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     stop_sequences: Optional[List[str]] = None
+    sleep_seconds: Optional[float] = Field(default=None, ge=0.0)
     enabled: Optional[bool] = None
 
 

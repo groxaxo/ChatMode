@@ -4,7 +4,6 @@ ChatMode Web Admin with CrewAI Integration.
 FastAPI-based web interface for controlling multi-agent debates.
 """
 
-import logging
 import os
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -14,17 +13,22 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import load_settings
 from session_crewai import ChatSession
+from chatmode.logger_config import setup_logging, get_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# Load settings first to get log configuration
+settings = load_settings()
+
+# Configure logging using centralized configuration
+setup_logging(
+    log_level=settings.log_level,
+    log_dir=settings.log_dir,
+    log_to_file=True,
+    log_to_console=True,
 )
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 app = FastAPI(title="ChatMode Admin (CrewAI)")
-settings = load_settings()
 chat_session = ChatSession(settings)
 
 # Add CORS for Vite frontend
@@ -42,7 +46,9 @@ base_dir = os.path.dirname(__file__)
 default_frontend_dir = os.path.join(base_dir, "frontend")
 reun10n_frontend_dir = os.path.join(base_dir, "Reun10n", "frontend")
 frontend_dir = os.getenv("FRONTEND_DIR") or (
-    reun10n_frontend_dir if os.path.isdir(reun10n_frontend_dir) else default_frontend_dir
+    reun10n_frontend_dir
+    if os.path.isdir(reun10n_frontend_dir)
+    else default_frontend_dir
 )
 
 app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
@@ -60,7 +66,7 @@ def admin_page(request: Request):
     if os.path.exists(unified_path):
         with open(unified_path, "r") as f:
             return HTMLResponse(content=f.read())
-    
+
     # Fallback to template
     return templates.TemplateResponse(
         "admin.html",
@@ -79,7 +85,7 @@ def start_session(topic: str = Form("")):
     if not topic:
         logger.warning("Start session requested without topic")
         return RedirectResponse(url="/", status_code=303)
-    
+
     try:
         logger.info(f"Starting session with topic: {topic}")
         if chat_session.start(topic):
@@ -87,11 +93,8 @@ def start_session(topic: str = Form("")):
             return RedirectResponse(url="/", status_code=303)
     except RuntimeError as e:
         logger.error(f"Failed to start session: {e}")
-        return JSONResponse(
-            {"status": "error", "reason": str(e)},
-            status_code=400
-        )
-    
+        return JSONResponse({"status": "error", "reason": str(e)}, status_code=400)
+
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -116,15 +119,16 @@ def resume_session():
     if chat_session.resume():
         return {"status": "resumed"}
     return JSONResponse(
-        {"status": "failed", "reason": "Already running or no topic"},
-        status_code=400
+        {"status": "failed", "reason": "Already running or no topic"}, status_code=400
     )
 
 
 @app.post("/messages")
 def send_message(content: str = Form(...), sender: str = Form("Admin")):
     """Inject an admin message into the conversation."""
-    logger.info(f"[{chat_session.session_id}] Admin injected message from '{sender}': {content[:50]}...")
+    logger.info(
+        f"[{chat_session.session_id}] Admin injected message from '{sender}': {content[:50]}..."
+    )
     chat_session.inject_message(sender, content)
     return {"status": "sent"}
 
@@ -158,30 +162,30 @@ def status(request: Request):
 def list_agents():
     """List all available agents."""
     import json
+
     config_path = os.path.join(os.path.dirname(__file__), "agent_config.json")
-    
+
     try:
         with open(config_path, "r") as f:
             config = json.load(f)
-        
+
         agents_info = []
         for agent_conf in config.get("agents", []):
             with open(agent_conf["file"], "r") as f:
                 profile = json.load(f)
-            
-            agents_info.append({
-                "name": profile.get("name", agent_conf.get("name")),
-                "model": profile.get("model", "default"),
-                "api": profile.get("api", "openai"),
-            })
-        
+
+            agents_info.append(
+                {
+                    "name": profile.get("name", agent_conf.get("name")),
+                    "model": profile.get("model", "default"),
+                    "api": profile.get("api", "openai"),
+                }
+            )
+
         return {"agents": agents_info}
-    
+
     except Exception as e:
-        return JSONResponse(
-            {"error": str(e)},
-            status_code=500
-        )
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/health")

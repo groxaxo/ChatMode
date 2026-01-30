@@ -10,7 +10,17 @@ from chatmode.session import ChatSession
 from chatmode.database import init_db, get_db
 from chatmode.content_filter import ContentFilter, create_filter_from_permissions
 from chatmode import crud
+from chatmode.logger_config import setup_logging, get_logger
 
+# Load settings and setup logging
+settings = load_settings()
+setup_logging(
+    log_level=settings.log_level,
+    log_dir=settings.log_dir,
+    log_to_file=True,
+    log_to_console=True,
+)
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="ChatMode Admin",
@@ -19,7 +29,6 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
-settings = load_settings()
 chat_session = ChatSession(settings)
 
 
@@ -47,10 +56,10 @@ def setup_content_filter():
                 }
             )
             chat_session.set_content_filter(filter_instance)
-            print(f"Content filter loaded from agent '{agents[0].name}'")
-            print(f"  Enabled: {filter_instance.enabled}")
-            print(f"  Blocked words: {len(filter_instance.blocked_words)} words")
-            print(f"  Action: {filter_instance.action}")
+            logger.info(f"Content filter loaded from agent '{agents[0].name}'")
+            logger.info(f"  Enabled: {filter_instance.enabled}")
+            logger.info(f"  Blocked words: {len(filter_instance.blocked_words)} words")
+            logger.info(f"  Action: {filter_instance.action}")
         else:
             # No filter configured - create disabled filter
             default_filter = ContentFilter(
@@ -60,9 +69,9 @@ def setup_content_filter():
                 filter_message="This message contains inappropriate content and has been blocked.",
             )
             chat_session.set_content_filter(default_filter)
-            print("Content filter is disabled by default")
+            logger.info("Content filter is disabled by default")
     except Exception as e:
-        print(f"Warning: Could not load content filter: {e}")
+        logger.warning(f"Could not load content filter: {e}")
         # Set a disabled filter
         default_filter = ContentFilter(enabled=False)
         chat_session.set_content_filter(default_filter)

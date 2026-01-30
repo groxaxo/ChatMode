@@ -86,6 +86,7 @@ def agent_to_response(agent) -> AgentResponse:
         max_tokens=agent.max_tokens,
         top_p=agent.top_p,
         stop_sequences=agent.stop_sequences or [],
+        sleep_seconds=agent.sleep_seconds,
         enabled=agent.enabled,
         created_at=agent.created_at,
         updated_at=agent.updated_at,
