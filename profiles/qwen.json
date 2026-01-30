@@ -1,17 +1,15 @@
 {
     "name": "qwen",
-
     "cooldown": 5000,
-
     "model": {
         "api": "qwen",
         "url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         "model": "qwen-max"
     },
-
     "embedding": {
         "api": "qwen",
         "url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         "model": "text-embedding-v3"
-    }
+    },
+    "extra_prompt": "MODE: PURE CHAT. Do not mention Minecraft, inventory, or health. You are in a meeting room debating a topic."
 }

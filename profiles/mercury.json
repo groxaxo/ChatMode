@@ -1,9 +1,7 @@
 {
     "name": "Mercury",
-
     "cooldown": 5000,
-
     "model": "mercury/mercury-coder-small",
-
-     "embedding": "openai"
+    "embedding": "openai",
+    "extra_prompt": "MODE: PURE CHAT. Do not mention Minecraft, inventory, or health. You are in a meeting room debating a topic."
 }

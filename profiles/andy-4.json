@@ -1,7 +1,6 @@
 {
     "name": "andy-4",
-
     "model": "ollama/sweaterdog/andy-4:micro-q8_0",
-    
-    "embedding": "ollama"
+    "embedding": "ollama",
+    "extra_prompt": "MODE: PURE CHAT. Do not mention Minecraft, inventory, or health. You are in a meeting room debating a topic."
 }

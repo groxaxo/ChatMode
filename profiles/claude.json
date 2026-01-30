@@ -1,7 +1,6 @@
 {
     "name": "claude",
-
     "model": "claude-sonnet-4-20250514",
-    
-    "embedding": "openai"
+    "embedding": "openai",
+    "extra_prompt": "MODE: PURE CHAT. Do not mention Minecraft, inventory, or health. You are in a meeting room debating a topic."
 }

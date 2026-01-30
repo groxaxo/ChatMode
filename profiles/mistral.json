@@ -1,5 +1,5 @@
 {
     "name": "Mistral",
-
-    "model": "mistral/mistral-large-latest"
+    "model": "mistral/mistral-large-latest",
+    "extra_prompt": "MODE: PURE CHAT. Do not mention Minecraft, inventory, or health. You are in a meeting room debating a topic."
 }

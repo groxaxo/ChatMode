@@ -65,10 +65,11 @@ class ChatAgent:
         self.params = data.get("params", {})
 
         self.system_prompt = clean_placeholders(data.get("conversing", ""))
-        self.system_prompt += (
-            "\nMODE: PURE CHAT. Do not mention Minecraft, inventory, or health. "
-            "You are in a meeting room debating a topic."
-        )
+        
+        # Add extra_prompt if provided in profile
+        extra_prompt = data.get("extra_prompt", "")
+        if extra_prompt:
+            self.system_prompt += "\n" + extra_prompt
 
         speak_model = data.get("speak_model", {})
         if speak_model:
