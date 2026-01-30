@@ -502,6 +502,242 @@ Different agents can have different:
 
 ---
 
+## Security and Access Control
+
+### Role-Based Access Control
+
+ChatMode implements role-based access control (RBAC) with three roles:
+
+- **Admin** – Full access to all features including agent deletion and permission updates
+- **Moderator** – Can manage agents, clear memory, and execute tools
+- **Viewer** – Read-only access to view agents and conversations
+
+### Protected Endpoints
+
+**Authentication Required:**
+- `GET /api/v1/tools/list` – List MCP tools (all authenticated users)
+- `GET /api/v1/transcript/download` – Download transcripts (all authenticated users)
+
+**Admin/Moderator Required:**
+- `DELETE /api/v1/agents/{agent_id}/memory` – Clear agent memory
+- `POST /api/v1/memory/purge` – Purge session memory
+- `POST /api/v1/tools/call` – Execute MCP tools manually
+- `POST /api/v1/agents` – Create agents
+- `PUT /api/v1/agents/{agent_id}` – Update agents
+
+**Admin Only:**
+- `DELETE /api/v1/agents/{agent_id}` – Delete agents
+- `PUT /api/v1/agents/{agent_id}/permissions` – Update agent permissions
+
+### Audit Logging
+
+All sensitive operations are logged with:
+- User identity
+- Action performed
+- Resource affected
+- IP address
+- User agent
+- Timestamp
+- Changes made
+
+**Example Audit Entry:**
+```json
+{
+  "user_id": "user-123",
+  "action": "AGENT_MEMORY_CLEAR",
+  "resource_type": "agent",
+  "resource_id": "researcher",
+  "changes": {
+    "agent": "researcher",
+    "session_id": "abc-123",
+    "entries_cleared": 42
+  },
+  "ip_address": "192.168.1.100",
+  "timestamp": "2024-01-30T12:34:56Z"
+}
+```
+
+### Tool Security
+
+**Allowed Tools Whitelist:**
+
+Agents can only execute tools in their `allowed_tools` list:
+
+```json
+{
+  "name": "Web Researcher",
+  "mcp_command": "mcp-server-browsermcp",
+  "allowed_tools": ["browser_navigate", "browser_screenshot"]
+}
+```
+
+Any tool call not in the whitelist is rejected with a 403 Forbidden error.
+
+**Argument Validation:**
+
+Tool arguments are validated before execution:
+- Must be valid JSON dictionary
+- Maximum argument length: 10,000 characters per field
+- Type validation for expected argument types
+
+**Audit Trail:**
+
+All tool executions are logged:
+- Tool name and arguments
+- Execution result or error
+- User who triggered the call (for manual calls)
+- Timestamp
+
+---
+
+## API Reference
+
+### Memory Management
+
+**Clear Agent Memory:**
+```http
+DELETE /api/v1/agents/{agent_id}/memory?session_id={optional_session_id}
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "status": "memory_cleared",
+  "agent_id": "researcher",
+  "agent_name": "researcher",
+  "entries_cleared": 42,
+  "session_id": "abc-123"
+}
+```
+
+**Purge Session Memory:**
+```http
+POST /api/v1/memory/purge?agent_name={name}&session_id={id}
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Memory purged for agent=researcher, session=abc-123",
+  "entries_cleared": 42
+}
+```
+
+### Tool Management
+
+**List Tools:**
+```http
+GET /api/v1/tools/list?agent_name={name}
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "agent": "researcher",
+  "tools": [
+    {
+      "name": "browser_navigate",
+      "description": "Navigate to a URL",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "url": {"type": "string"}
+        }
+      }
+    }
+  ],
+  "allowed_tools": ["browser_navigate", "browser_screenshot"],
+  "count": 2
+}
+```
+
+**Call Tool:**
+```http
+POST /api/v1/tools/call
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "agent_name": "researcher",
+  "tool_name": "browser_navigate",
+  "arguments": {
+    "url": "https://example.com"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "agent": "researcher",
+  "tool": "browser_navigate",
+  "arguments": {"url": "https://example.com"},
+  "result": {
+    "content": "Page loaded successfully",
+    "title": "Example Domain"
+  }
+}
+```
+
+### Transcript Export
+
+**Download Transcript:**
+```http
+GET /api/v1/transcript/download?format=markdown
+Authorization: Bearer <token>
+```
+
+**Response:** File download (markdown or CSV)
+
+---
+
+## Troubleshooting
+
+### Memory Clearing Issues
+
+**Problem:** Memory not clearing properly
+
+**Solutions:**
+1. Check that ChromaDB is running
+2. Verify session_id and agent_id are correct
+3. Check audit logs for error details
+4. Ensure user has admin/moderator role
+
+### Tool Execution Failures
+
+**Problem:** Tool calls failing with 403 Forbidden
+
+**Solutions:**
+1. Verify tool is in agent's `allowed_tools` list
+2. Check MCP server is running
+3. Verify MCP command is correct in agent profile
+4. Check audit logs for detailed error
+
+**Problem:** Tool not found
+
+**Solutions:**
+1. Run `GET /api/v1/tools/list` to see available tools
+2. Verify MCP server supports the tool
+3. Check MCP server logs for errors
+4. Restart MCP server if needed
+
+### Authentication Issues
+
+**Problem:** 401 Unauthorized errors
+
+**Solutions:**
+1. Verify authentication token is valid
+2. Check token expiration
+3. Ensure user account is enabled
+4. Verify user has required role for endpoint
+
+---
+
 ## Future Enhancements
 
 Planned features:
