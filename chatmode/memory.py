@@ -102,10 +102,15 @@ class MemoryStore:
             
             # Build where filter if session/agent filtering requested
             query_where = where_filter
-            if session_id and not query_where:
-                query_where = {"session_id": session_id}
-            elif agent_id and not query_where:
-                query_where = {"agent_id": agent_id}
+            if not query_where:
+                query_where = {}
+                if session_id:
+                    query_where["session_id"] = session_id
+                if agent_id:
+                    query_where["agent_id"] = agent_id
+                # Only use the filter if it has content
+                if not query_where:
+                    query_where = None
             
             result = self.collection.query(
                 query_embeddings=embeddings,

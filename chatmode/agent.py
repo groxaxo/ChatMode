@@ -188,6 +188,12 @@ class ChatAgent:
             tool_results = []
             for call in tool_calls:
                 func_name = call["function"]["name"]
+                
+                # Security: Verify tool is in allowed_tools list
+                if func_name not in self.allowed_tools:
+                    tool_results.append(f"Tool {func_name} is not allowed for this agent")
+                    continue
+                
                 func_args = json.loads(call["function"]["arguments"]) if isinstance(
                     call["function"]["arguments"], str
                 ) else call["function"]["arguments"]
@@ -201,8 +207,23 @@ class ChatAgent:
                 except Exception as e:
                     tool_results.append(f"Tool {func_name} failed: {e}")
             
-            # Return tool results as the response
-            response = "\n".join(tool_results)
+            # Send tool results back to LLM for natural language response
+            tool_result_text = "\n".join(tool_results)
+            
+            # Append tool results to messages and ask LLM to respond
+            messages_with_tools = messages + [
+                {"role": "assistant", "content": f"[Tool execution results]\n{tool_result_text}"},
+                {"role": "user", "content": "Based on the tool results above, provide a natural language response."}
+            ]
+            
+            # Get final response from LLM
+            response = self.chat_provider.chat(
+                model=self.model or self.settings.default_chat_model,
+                messages=messages_with_tools,
+                temperature=self.settings.temperature,
+                max_tokens=self.settings.max_output_tokens,
+                options=self.params,
+            )
 
         output_path = None
         if self.settings.tts_enabled and self.tts_client:

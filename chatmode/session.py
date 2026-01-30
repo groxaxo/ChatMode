@@ -119,17 +119,13 @@ class ChatSession:
             f"{msg['sender']}: {msg['content']}" for msg in messages
         )
         
-        # Use first agent's provider for summarization (could be configurable)
+        # Use first agent's provider for summarization if available
         if not self.agents:
             return f"[{len(messages)} previous messages]"
         
         try:
-            from .providers import build_chat_provider
-            summarizer = build_chat_provider(
-                provider="openai",
-                base_url=self.settings.openai_base_url,
-                api_key=self.settings.openai_api_key,
-            )
+            # Try to use the first agent's chat provider
+            first_agent = self.agents[0]
             
             summary_prompt = [
                 {
@@ -139,8 +135,8 @@ class ChatSession:
                 {"role": "user", "content": f"Summarize this conversation:\n\n{conversation_text}"},
             ]
             
-            summary = summarizer.chat(
-                model=self.settings.default_chat_model,
+            summary = first_agent.chat_provider.chat(
+                model=first_agent.model or self.settings.default_chat_model,
                 messages=summary_prompt,
                 temperature=0.5,
                 max_tokens=200,

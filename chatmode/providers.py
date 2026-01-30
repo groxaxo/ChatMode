@@ -109,7 +109,21 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 class OllamaChatProvider(ChatProvider):
     base_url: str
 
-    def chat(self, model: str, messages: List[Dict[str, str]], temperature: float, max_tokens: int, options=None) -> str:
+    def chat(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+        options=None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: Optional[str] = None,
+    ) -> str:
+        """
+        Generate a chat completion.
+        
+        Note: Ollama doesn't currently support tool calling, so tools/tool_choice are ignored.
+        """
         url = f"{self.base_url}/api/chat"
         payload = {
             "model": model,

@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/v1", tags=["advanced"])
 @router.get("/transcript/download")
 async def download_transcript(
     chat_session: ChatSession,
-    format: str = Query("markdown", regex="^(markdown|csv)$"),
+    format: str = Query("markdown", pattern="^(markdown|csv)$"),
 ):
     """
     Download conversation transcript in Markdown or CSV format.
