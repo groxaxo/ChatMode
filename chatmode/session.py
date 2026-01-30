@@ -9,23 +9,44 @@ from .agent import ChatAgent
 from .admin import AdminAgent
 from .config import Settings
 from .content_filter import ContentFilter, create_filter_from_permissions
+from .logger_config import get_logger, log_execution_time, log_operation
+
+logger = get_logger(__name__)
 
 
+@log_execution_time(logger)
 def load_agents(settings: Settings) -> List[ChatAgent]:
     # Look for agent_config.json in project root (parent of chatmode package)
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_path = os.path.join(project_root, "agent_config.json")
+
+    logger.debug(f"📂 Loading agent configuration from: {config_path}")
+
     with open(config_path, "r") as f:
         config = json.load(f)
 
     agents: List[ChatAgent] = []
-    for agent_conf in config.get("agents", []):
-        agent = ChatAgent(
-            name=agent_conf.get("name", "agent"),
-            config_file=agent_conf["file"],
-            settings=settings,
-        )
-        agents.append(agent)
+    agent_configs = config.get("agents", [])
+    logger.info(f"🔧 Loading {len(agent_configs)} agents from configuration")
+
+    for agent_conf in agent_configs:
+        agent_name = agent_conf.get("name", "agent")
+        config_file = agent_conf["file"]
+        logger.debug(f"🤖 Loading agent: {agent_name} from {config_file}")
+
+        try:
+            agent = ChatAgent(
+                name=agent_name,
+                config_file=config_file,
+                settings=settings,
+            )
+            agents.append(agent)
+            logger.debug(f"✅ Agent '{agent_name}' loaded successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to load agent '{agent_name}': {e}", exc_info=True)
+            raise
+
+    logger.info(f"✅ Successfully loaded {len(agents)} agents")
     return agents
 
 
@@ -48,19 +69,28 @@ class ChatSession:
     def start(self, topic: str) -> bool:
         with self._lock:
             if self._running:
+                logger.warning("⚠️  Session already running, cannot start new session")
                 return False
+
+            self.session_id = str(uuid.uuid4())  # Generate new session ID
+            logger.info(f"🚀 Starting new chat session: {self.session_id}")
+            logger.debug(f"📋 Topic: {topic[:100]}...")
+
             self.topic = topic
             self.history = []
             self.last_messages = []
-            self.session_id = str(uuid.uuid4())  # Generate new session ID
             self.agents = load_agents(self.settings)
 
             # Support arbitrary number of agents (≥1)
             if len(self.agents) < 1:
+                logger.error("❌ No agents configured - cannot start session")
                 raise RuntimeError("Need at least one agent to start")
+
+            logger.info(f"🤖 Session has {len(self.agents)} agent(s)")
 
             # If only one agent, create AdminAgent for interaction
             if len(self.agents) == 1:
+                logger.debug("👤 Single agent mode - creating AdminAgent")
                 self.admin_agent = AdminAgent(self.settings)
             else:
                 self.admin_agent = None
@@ -68,30 +98,44 @@ class ChatSession:
             self._running = True
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
+            logger.info(f"✅ Session {self.session_id} started successfully")
             return True
 
     def resume(self) -> bool:
         with self._lock:
             if self._running:
+                logger.warning("⚠️  Session already running, cannot resume")
                 return False
             if not self.topic:
+                logger.warning("⚠️  No topic to resume")
                 return False  # Nothing to resume
+
+            logger.info(f"▶️  Resuming session: {self.session_id}")
+
             # Don't clear history/last_messages
             # Reload agents to ensure fresh state if needed? Alternatively keep existing agents if stored.
             # Here we reload agents but they might lose short-term memory if it wasn't externalized.
             # "memory.py" uses chroma, so long-term is safe. Context is in self.history.
             # We need to make sure agents are initialized.
             if not self.agents:
+                logger.debug("🔄 Reloading agents for resumed session")
                 self.agents = load_agents(self.settings)
 
             self._running = True
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
+            logger.info(f"✅ Session {self.session_id} resumed successfully")
             return True
 
     def stop(self) -> None:
         with self._lock:
+            if not self._running:
+                logger.debug("⚠️  Session not running, nothing to stop")
+                return
+
+            logger.info(f"🛑 Stopping session: {self.session_id}")
             self._running = False
+            logger.debug(f"✅ Session {self.session_id} stopped")
 
     def is_running(self) -> bool:
         with self._lock:

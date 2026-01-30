@@ -1,5 +1,6 @@
 import json
 import asyncio
+import logging
 from typing import List, Dict, Optional, Tuple
 
 from .config import Settings
@@ -12,12 +13,17 @@ from .providers import (
 )
 from .tts import TTSClient
 from .utils import clean_placeholders, trim_messages_to_context, approximate_tokens
+from .logger_config import get_logger, log_execution_time
+
+logger = get_logger(__name__)
 
 
 class ChatAgent:
     def __init__(self, name: str, config_file: str, settings: Settings):
         self.name = name
         self.settings = settings
+        logger.debug(f"🤖 Initializing ChatAgent: {name}")
+
         self.load_profile(config_file)
         self.history: List[Dict[str, str]] = []
         self.mcp_client = None  # MCP client for tool calling
@@ -30,17 +36,22 @@ class ChatAgent:
                 else settings.openai_base_url
             )
 
+        logger.debug(f"🔌 Building chat provider: {self.api} @ {self.api_url}")
         self.chat_provider: ChatProvider = build_chat_provider(
             provider=self.api,
             base_url=self.api_url,
             api_key=self.api_key or settings.openai_api_key,
         )
+
+        logger.debug(f"🔌 Building embedding provider: {settings.embedding_provider}")
         self.embedding_provider: EmbeddingProvider = build_embedding_provider(
             provider=settings.embedding_provider,
             base_url=settings.embedding_base_url,
             api_key=settings.embedding_api_key or settings.openai_api_key,
             model=settings.embedding_model,
         )
+
+        logger.debug(f"🧠 Initializing memory store: {self.name}_memory")
         self.memory = MemoryStore(
             collection_name=f"{self.name}_memory",
             persist_dir=settings.chroma_dir,
@@ -49,6 +60,7 @@ class ChatAgent:
 
         self.tts_client = None
         if settings.tts_enabled:
+            logger.debug(f"🔊 Initializing TTS client")
             self.tts_client = TTSClient(
                 base_url=settings.tts_base_url,
                 api_key=settings.tts_api_key or settings.openai_api_key,
@@ -56,9 +68,10 @@ class ChatAgent:
                 voice=settings.tts_voice,
                 output_dir=settings.tts_output_dir,
             )
-        
+
         # Initialize MCP client if configured
         self._init_mcp_client()
+        logger.info(f"✅ ChatAgent '{name}' initialized successfully")
 
     def load_profile(self, config_file: str) -> None:
         with open(config_file, "r") as f:
@@ -71,7 +84,7 @@ class ChatAgent:
         self.params = data.get("params", {})
 
         self.system_prompt = clean_placeholders(data.get("conversing", ""))
-        
+
         # Add extra_prompt if provided in profile
         extra_prompt = data.get("extra_prompt", "")
         if extra_prompt:
@@ -93,14 +106,15 @@ class ChatAgent:
         else:
             self.tts_model_override = None
             self.tts_voice_override = None
-    
+
     def _init_mcp_client(self) -> None:
         """Initialize MCP client if configured."""
         if not self.mcp_command:
             return
-        
+
         try:
             from .mcp_client import MCPClient
+
             self.mcp_client = MCPClient(
                 command=self.mcp_command,
                 args=self.mcp_args,
@@ -118,7 +132,11 @@ class ChatAgent:
             )
 
         # Use per-agent memory_top_k if set, otherwise use global setting
-        top_k = self.memory_top_k if self.memory_top_k is not None else self.settings.memory_top_k
+        top_k = (
+            self.memory_top_k
+            if self.memory_top_k is not None
+            else self.settings.memory_top_k
+        )
         memory_snippets = self.memory.query(memory_query, top_k)
         memory_text = "\n".join(
             f"- {item['text']} (speaker: {item.get('sender', 'unknown')})"
@@ -147,7 +165,11 @@ class ChatAgent:
         ]
 
         # Use per-agent max_context_tokens if set, otherwise use global setting
-        max_tokens = self.max_context_tokens if self.max_context_tokens is not None else self.settings.max_context_tokens
+        max_tokens = (
+            self.max_context_tokens
+            if self.max_context_tokens is not None
+            else self.settings.max_context_tokens
+        )
         return trim_messages_to_context(
             messages,
             max_tokens=max_tokens,
@@ -157,10 +179,10 @@ class ChatAgent:
     def _safe_json_loads(self, raw_args: str) -> Dict:
         """
         Safely parse JSON, returning empty dict on failure.
-        
+
         Args:
             raw_args: JSON string that may be invalid
-            
+
         Returns:
             Parsed dict or empty dict if invalid
         """
@@ -174,12 +196,14 @@ class ChatAgent:
         except (json.JSONDecodeError, TypeError) as e:
             print(f"Warning: Failed to parse tool arguments: {e}")
             return {}
-    
+
+    @log_execution_time(logger, logging.DEBUG)
     def generate_response(
         self, topic: str, conversation_history: List[Dict[str, str]]
     ) -> Tuple[str, Optional[str]]:
+        logger.debug(f"📝 Generating response for topic: {topic[:50]}...")
         messages = self._build_messages(topic, conversation_history)
-        
+
         # Prepare tools if MCP client is configured
         tools = None
         if self.mcp_client and self.allowed_tools:
@@ -189,7 +213,7 @@ class ChatAgent:
                 )
             except Exception as e:
                 print(f"Warning: Failed to get MCP tools: {e}")
-        
+
         completion = self.chat_provider.chat(
             model=self.model or self.settings.default_chat_model,
             messages=messages,
@@ -199,7 +223,7 @@ class ChatAgent:
             tools=tools,
             tool_choice="auto" if tools else None,
         )
-        
+
         # Check for tool calls using the robust pattern from problem statement
         # msg = completion.choices[0].message
         # tool_calls = getattr(msg, "tool_calls", None) or msg.get("tool_calls")
@@ -208,7 +232,7 @@ class ChatAgent:
             tool_calls = getattr(completion, "tool_calls", None)
             if not tool_calls and hasattr(completion, "get"):
                 tool_calls = completion.get("tool_calls")
-        
+
         # Handle tool calls with proper message format
         if tool_calls:
             # Add the assistant's message with tool calls to conversation
@@ -226,40 +250,42 @@ class ChatAgent:
                         "function": {
                             "name": tc.function.name,
                             "arguments": tc.function.arguments,
-                        }
+                        },
                     }
                     for tc in completion.tool_calls
                 ]
             messages.append(assistant_msg)
-            
+
             # Execute each tool call
             for tc in tool_calls:
                 tool_call_id = tc.id
                 tool_name = tc.function.name
                 raw_args = tc.function.arguments  # string; may be invalid JSON
-                
+
                 # Safe JSON parsing with fallback
                 args = self._safe_json_loads(raw_args)
-                
+
                 # Security: Verify tool is in allowed_tools list
                 if tool_name not in self.allowed_tools:
-                    result = {"error": f"Tool {tool_name} is not allowed for this agent"}
+                    result = {
+                        "error": f"Tool {tool_name} is not allowed for this agent"
+                    }
                 else:
                     # Call the tool
                     try:
-                        result = asyncio.run(
-                            self.mcp_client.call_tool(tool_name, args)
-                        )
+                        result = asyncio.run(self.mcp_client.call_tool(tool_name, args))
                     except Exception as e:
                         result = {"error": str(e)}
-                
+
                 # Add tool result in proper format with role="tool"
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call_id,  # required
-                    "content": json.dumps(result)  # or plain text
-                })
-            
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,  # required
+                        "content": json.dumps(result),  # or plain text
+                    }
+                )
+
             # Second call: model integrates tool output into natural language
             # Don't pass tools again to avoid infinite loops
             completion = self.chat_provider.chat(
@@ -270,7 +296,7 @@ class ChatAgent:
                 options=self.params,
                 # Explicitly no tools on second call
             )
-        
+
         # Extract final response content
         response = ""
         if completion:
@@ -278,7 +304,7 @@ class ChatAgent:
                 response = completion.content or ""
             elif isinstance(completion, str):
                 response = completion
-        
+
         output_path = None
         if self.settings.tts_enabled and self.tts_client:
             output_path = self.tts_client.speak(
@@ -291,7 +317,11 @@ class ChatAgent:
         return (response.strip() if response else "...", output_path)
 
     def remember_message(
-        self, sender: str, content: str, session_id: Optional[str] = None, topic: Optional[str] = None
+        self,
+        sender: str,
+        content: str,
+        session_id: Optional[str] = None,
+        topic: Optional[str] = None,
     ) -> None:
         """Store a message in long-term memory with session context."""
         self.memory.add(
