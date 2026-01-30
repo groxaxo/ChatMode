@@ -40,7 +40,7 @@ class OpenAIChatProvider(ChatProvider):
         options=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: Optional[str] = None,
-    ) -> str:
+    ):
         """
         Generate a chat completion.
         
@@ -54,7 +54,7 @@ class OpenAIChatProvider(ChatProvider):
             tool_choice: How to use tools ("auto", "none", or specific tool)
             
         Returns:
-            The response content or tool call information
+            Dict with either 'content' or 'tool_calls' key, or the full message object
         """
         kwargs = {
             "model": model,
@@ -70,25 +70,11 @@ class OpenAIChatProvider(ChatProvider):
         
         response = self.client.chat.completions.create(**kwargs)
         
-        # Check if model returned a tool call
+        # Return the full message object for caller to handle
         choice = response.choices[0] if response.choices else None
-        if choice and hasattr(choice.message, "tool_calls") and choice.message.tool_calls:
-            # Return tool calls as a special marker
-            tool_calls_data = []
-            for tool_call in choice.message.tool_calls:
-                tool_calls_data.append({
-                    "id": tool_call.id,
-                    "type": tool_call.type,
-                    "function": {
-                        "name": tool_call.function.name,
-                        "arguments": tool_call.function.arguments,
-                    }
-                })
-            # Return JSON-encoded tool calls with special prefix
-            import json
-            return f"__TOOL_CALLS__:{json.dumps(tool_calls_data)}"
-        
-        return choice.message.content if choice else ""
+        if choice:
+            return choice.message
+        return None
 
 
 @dataclass
@@ -118,11 +104,14 @@ class OllamaChatProvider(ChatProvider):
         options=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: Optional[str] = None,
-    ) -> str:
+    ):
         """
         Generate a chat completion.
         
         Note: Ollama doesn't currently support tool calling, so tools/tool_choice are ignored.
+        
+        Returns:
+            A simple object with .content attribute for compatibility
         """
         url = f"{self.base_url}/api/chat"
         payload = {
@@ -137,7 +126,15 @@ class OllamaChatProvider(ChatProvider):
         response = requests.post(url, json=payload, timeout=120)
         response.raise_for_status()
         data = response.json()
-        return data.get("message", {}).get("content", "")
+        content = data.get("message", {}).get("content", "")
+        
+        # Return a simple object with .content for compatibility with OpenAI format
+        class SimpleMessage:
+            def __init__(self, content):
+                self.content = content
+                self.tool_calls = None
+        
+        return SimpleMessage(content)
 
 
 @dataclass
