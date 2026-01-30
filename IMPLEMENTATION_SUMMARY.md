@@ -314,3 +314,232 @@ The result is a more flexible, powerful, and extensible agent platform while mai
 **Test Coverage:** All major features  
 
 **Status:** ✅ Ready for Production
+
+---
+
+# TTS Support & Agent Control Implementation
+
+## Overview
+Successfully implemented TTS (Text-to-Speech) support with OpenAI-compatible providers and per-agent control (pause/stop/finish) with real-time interruption capabilities.
+
+## Files Created
+
+### 1. `chatmode/tts_provider.py`
+New TTS provider abstraction with:
+- **TTSProvider** abstract base class
+- **OpenAICompatibleTTSProvider** implementation
+  - Supports all OpenAI TTS parameters (model, voice, response_format, speed, instructions)
+  - Timeout and retry configuration with exponential backoff
+  - Error handling with TTSProviderError
+- **AudioStorage** class
+  - Content-based caching using SHA256 hashes
+  - Session-based organization: `data/audio/{session_id}/{message_id}.{ext}`
+  - Cache directory for deduplication across sessions
+- **TTSClient** legacy wrapper for backward compatibility
+
+### 2. `chatmode/agent_state.py`
+Agent state management system:
+- **AgentState** enum: `ACTIVE`, `PAUSED`, `STOPPED`, `FINISHED`
+- **AgentStateManager** class
+  - Per-agent state tracking
+  - Async task management for cancellation
+  - Pause/resume/stop/finish/restart operations
+  - Immediate interruption of in-flight generation
+
+### 3. `tests/test_simple.py`
+Unit tests covering:
+- Text normalization for TTS
+- MIME type detection
+- Audio storage and caching
+- Agent state transitions
+- Task cancellation
+
+## Files Modified
+
+### 1. `chatmode/config.py`
+Added new TTS settings:
+- `tts_format`: Output format (mp3, opus, aac, flac, wav, pcm)
+- `tts_speed`: Speech speed (0.25-4.0)
+- `tts_instructions`: Voice instructions for supported models
+- `tts_timeout`: Request timeout in seconds
+- `tts_max_retries`: Maximum retry attempts
+- `tts_headers`: Custom HTTP headers (JSON format)
+
+### 2. `chatmode/session.py`
+Major refactoring:
+- Converted from threading to asyncio for cancellation support
+- Integrated AgentStateManager for per-agent control
+- Added `_generate_tts()` method for async TTS generation
+- Added `_run_agent_turn()` with task cancellation
+- Turn scheduler filters only ACTIVE agents
+- Audio metadata included in messages (audio_url, audio_format, audio_mime, audio_cached)
+
+### 3. `chatmode/main.py`
+Updated endpoints:
+- `/start`, `/stop`, `/resume` now async
+- `/status` includes agent_states
+- New agent control endpoints:
+  - `POST /agents/{name}/pause`
+  - `POST /agents/{name}/resume`
+  - `POST /agents/{name}/stop`
+  - `POST /agents/{name}/finish`
+  - `POST /agents/{name}/restart`
+  - `GET /agents/states`
+- Audio static files mounted at `/audio`
+
+### 4. `chatmode/schemas.py`
+Schema updates:
+- Added `AgentState` enum
+- Added `AgentStateInfo` and `AgentStatesResponse` schemas
+- Updated `VoiceSettingsBase/Update` with new TTS fields
+- Updated `MessageResponse` with audio_url, audio_format, audio_mime, audio_cached
+- Updated `SessionStatus` with agent_states
+
+## API Endpoints
+
+### Agent Control
+```
+POST /agents/{agent_name}/pause     - Pause agent (skips turns)
+POST /agents/{agent_name}/resume    - Resume paused agent
+POST /agents/{agent_name}/stop      - Stop agent (removes from rotation)
+POST /agents/{agent_name}/finish    - Mark agent finished (terminal)
+POST /agents/{agent_name}/restart   - Restart stopped/finished agent
+GET  /agents/states                 - Get all agent states
+```
+
+### Session Control
+```
+POST /start                         - Start new session (async)
+POST /stop                          - Stop session (async)
+POST /resume                        - Resume session (async)
+GET  /status                        - Get session status + agent states
+```
+
+## Message Format
+
+Messages now include audio metadata:
+```json
+{
+  "sender": "Agent Name",
+  "content": "Message text",
+  "audio_url": "/audio/{session_id}/{message_id}.mp3",
+  "audio_format": "mp3",
+  "audio_mime": "audio/mpeg",
+  "audio_cached": false
+}
+```
+
+## Configuration
+
+New environment variables:
+```bash
+# TTS Configuration
+TTS_ENABLED=true
+TTS_BASE_URL=https://api.openai.com/v1
+TTS_API_KEY=your-api-key
+TTS_MODEL=tts-1                    # or gpt-4o-mini-tts
+TTS_VOICE=alloy
+TTS_FORMAT=mp3                     # mp3, opus, aac, flac, wav, pcm
+TTS_SPEED=1.0                      # 0.25 to 4.0
+TTS_INSTRUCTIONS="Speak in a cheerful tone"
+TTS_TIMEOUT=30.0
+TTS_MAX_RETRIES=3
+TTS_HEADERS='{"X-Custom-Header": "value"}'
+```
+
+## Key Features
+
+### 1. OpenAI-Compatible TTS
+- Works with any OpenAI-compatible endpoint
+- Supports all response formats (mp3, opus, aac, flac, wav, pcm)
+- Configurable speed and instructions
+- Timeout and retry with exponential backoff
+- Feature detection for optional capabilities
+
+### 2. Per-Agent Control
+- **Pause**: Agent skipped but stays informed (can resume)
+- **Stop**: Agent removed from rotation (can restart)
+- **Finish**: Terminal state, agent completed its role
+- **Real-time interruption**: Cancels in-flight generation immediately
+
+### 3. Audio Storage
+- Session-based organization
+- Content-addressable caching
+- Automatic cleanup per session
+- Legacy audio path support
+
+### 4. Async Architecture
+- Full asyncio support for cancellation
+- Each agent turn runs in separate task
+- Immediate response to stop/pause commands
+- Non-blocking TTS generation
+
+## Testing
+
+Run tests:
+```bash
+PYTHONPATH=/home/op/ChatMode python3 tests/test_simple.py
+```
+
+All tests pass:
+- ✓ Text normalization
+- ✓ MIME type detection
+- ✓ Audio storage and caching
+- ✓ Agent state management
+
+## Usage Example
+
+```python
+# Start session
+await chat_session.start("Discuss climate change")
+
+# Pause an agent
+await chat_session.pause_agent("agent-1", "Taking a break")
+
+# Stop an agent immediately (cancels if generating)
+await chat_session.stop_agent("agent-2", "Off topic")
+
+# Check agent states
+states = await chat_session.get_agent_states()
+# {
+#   "agent-1": {"state": "paused", ...},
+#   "agent-2": {"state": "stopped", ...},
+#   "agent-3": {"state": "active", ...}
+# }
+
+# Resume agent
+await chat_session.resume_agent("agent-1")
+```
+
+## Architecture
+
+```
+┌─────────────────┐
+│   ChatSession   │
+├─────────────────┤
+│ - state_manager │◄── AgentStateManager
+│ - audio_storage │◄── AudioStorage
+│ - tts_provider  │◄── OpenAICompatibleTTSProvider
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐     ┌──────────────────┐
+│  _run_loop()    │────►│ _run_agent_turn()│
+│  (async)        │     │ (async Task)     │
+└─────────────────┘     └──────────────────┘
+         │                        │
+         ▼                        ▼
+┌─────────────────┐     ┌──────────────────┐
+│ Filter ACTIVE   │     │ generate_response│
+│ agents only     │     │ + TTS generation │
+└─────────────────┘     └──────────────────┘
+```
+
+## Backward Compatibility
+
+- Legacy TTSClient still works (wraps new provider)
+- Legacy audio paths still served
+- Existing agent profiles work without changes
+- Session API remains compatible
+
+**Status:** ✅ TTS & Agent Control Ready for Production

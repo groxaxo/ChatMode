@@ -22,6 +22,12 @@ class Settings:
     tts_model: str
     tts_voice: str
     tts_output_dir: str
+    tts_format: str
+    tts_speed: float
+    tts_instructions: str
+    tts_timeout: float
+    tts_max_retries: int
+    tts_headers: str
 
     chroma_dir: str
     max_context_tokens: int
@@ -32,6 +38,8 @@ class Settings:
     sleep_seconds: float
     admin_use_llm: bool
     verbose: bool
+    log_level: str
+    log_dir: str
 
 
 def load_settings() -> Settings:
@@ -55,6 +63,12 @@ def load_settings() -> Settings:
         tts_model=os.getenv("TTS_MODEL", "tts-1"),
         tts_voice=os.getenv("TTS_VOICE", "alloy"),
         tts_output_dir=os.getenv("TTS_OUTPUT_DIR", "./tts_out"),
+        tts_format=os.getenv("TTS_FORMAT", "mp3"),
+        tts_speed=float(os.getenv("TTS_SPEED", "1.0")),
+        tts_instructions=os.getenv("TTS_INSTRUCTIONS", ""),
+        tts_timeout=float(os.getenv("TTS_TIMEOUT", "30.0")),
+        tts_max_retries=int(os.getenv("TTS_MAX_RETRIES", "3")),
+        tts_headers=os.getenv("TTS_HEADERS", ""),
         chroma_dir=os.getenv("CHROMA_DIR", "./data/chroma"),
         max_context_tokens=int(os.getenv("MAX_CONTEXT_TOKENS", "32000")),
         max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS", "512")),
@@ -64,4 +78,6 @@ def load_settings() -> Settings:
         sleep_seconds=float(os.getenv("SLEEP_SECONDS", "2")),
         admin_use_llm=_get_bool("ADMIN_USE_LLM", "true"),
         verbose=_get_bool("VERBOSE", "false"),
+        log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
+        log_dir=os.getenv("LOG_DIR", "./logs"),
     )

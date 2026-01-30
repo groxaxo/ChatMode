@@ -236,9 +236,16 @@ frontend_dir = os.getenv("FRONTEND_DIR") or (
 if os.path.exists(frontend_dir):
     app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
 
-# Mount audio directory
+# Mount audio directories
 os.makedirs(settings.tts_output_dir, exist_ok=True)
-app.mount("/audio", StaticFiles(directory=settings.tts_output_dir), name="audio")
+os.makedirs("./data/audio", exist_ok=True)
+
+# Legacy TTS output directory
+app.mount(
+    "/audio/legacy", StaticFiles(directory=settings.tts_output_dir), name="audio_legacy"
+)
+# New audio storage with session-based organization
+app.mount("/audio", StaticFiles(directory="./data/audio"), name="audio")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -266,20 +273,20 @@ def admin_page(request: Request):
 
 
 @app.post("/start")
-def start_session(topic: str = Form("")):
+async def start_session(topic: str = Form("")):
     """Start a new chat session."""
     topic = topic.strip()
     if not topic:
         return RedirectResponse(url="/", status_code=303)
-    if chat_session.start(topic):
+    if await chat_session.start(topic):
         return RedirectResponse(url="/", status_code=303)
     return RedirectResponse(url="/", status_code=303)
 
 
 @app.post("/stop")
-def stop_session():
+async def stop_session():
     """Stop the current chat session."""
-    chat_session.stop()
+    await chat_session.stop()
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -291,9 +298,9 @@ def clear_memory():
 
 
 @app.post("/resume")
-def resume_session():
+async def resume_session():
     """Resume a paused session."""
-    if chat_session.resume():
+    if await chat_session.resume():
         return {"status": "resumed"}
     return JSONResponse(
         {"status": "failed", "reason": "Already running or no topic"}, status_code=400
@@ -308,7 +315,7 @@ def send_message(content: str = Form(...), sender: str = Form("Admin")):
 
 
 @app.get("/status")
-def status(request: Request):
+async def status(request: Request):
     """Get session status and recent messages."""
     # Sanitize audio paths to URLs
     messages = []
@@ -316,19 +323,130 @@ def status(request: Request):
 
     for msg in chat_session.last_messages:
         new_msg = msg.copy()
-        if new_msg.get("audio"):
-            # Convert absolute path to relative URL
-            filename = os.path.basename(new_msg["audio"])
-            new_msg["audio"] = f"{base_url}/audio/{filename}"
+
+        # Handle legacy audio paths
+        if new_msg.get("audio") and isinstance(new_msg["audio"], str):
+            if not new_msg["audio"].startswith("http"):
+                # Convert absolute path to relative URL
+                filename = os.path.basename(new_msg["audio"])
+                new_msg["audio"] = f"{base_url}/audio/{filename}"
+
+        # Handle new audio_url field
+        if new_msg.get("audio_url") and isinstance(new_msg["audio_url"], str):
+            if not new_msg["audio_url"].startswith("http"):
+                new_msg["audio_url"] = f"{base_url}{new_msg['audio_url']}"
+
         messages.append(new_msg)
+
+    # Get agent states
+    agent_states = await chat_session.get_agent_states()
 
     return JSONResponse(
         {
             "running": chat_session.is_running(),
             "topic": chat_session.topic,
+            "session_id": chat_session.session_id,
             "last_messages": messages,
+            "agent_states": agent_states,
         }
     )
+
+
+# ============================================================================
+# Agent Control Endpoints
+# ============================================================================
+
+
+@app.post("/agents/{agent_name}/pause")
+async def pause_agent(agent_name: str, reason: str = Form(None)):
+    """Pause a specific agent."""
+    success = await chat_session.pause_agent(agent_name, reason)
+    if success:
+        return {"status": "paused", "agent": agent_name, "reason": reason}
+    return JSONResponse(
+        {
+            "status": "failed",
+            "agent": agent_name,
+            "reason": "Agent not found or already paused",
+        },
+        status_code=400,
+    )
+
+
+@app.post("/agents/{agent_name}/resume")
+async def resume_agent(agent_name: str):
+    """Resume a paused agent."""
+    success = await chat_session.resume_agent(agent_name)
+    if success:
+        return {"status": "resumed", "agent": agent_name}
+    return JSONResponse(
+        {
+            "status": "failed",
+            "agent": agent_name,
+            "reason": "Agent not found or not paused",
+        },
+        status_code=400,
+    )
+
+
+@app.post("/agents/{agent_name}/stop")
+async def stop_agent(agent_name: str, reason: str = Form(None)):
+    """Stop a specific agent."""
+    success = await chat_session.stop_agent(agent_name, reason)
+    if success:
+        return {"status": "stopped", "agent": agent_name, "reason": reason}
+    return JSONResponse(
+        {
+            "status": "failed",
+            "agent": agent_name,
+            "reason": "Agent not found or already stopped",
+        },
+        status_code=400,
+    )
+
+
+@app.post("/agents/{agent_name}/finish")
+async def finish_agent(agent_name: str, reason: str = Form(None)):
+    """Mark an agent as finished."""
+    success = await chat_session.finish_agent(agent_name, reason)
+    if success:
+        return {"status": "finished", "agent": agent_name, "reason": reason}
+    return JSONResponse(
+        {
+            "status": "failed",
+            "agent": agent_name,
+            "reason": "Agent not found or already finished",
+        },
+        status_code=400,
+    )
+
+
+@app.post("/agents/{agent_name}/restart")
+async def restart_agent(agent_name: str):
+    """Restart a stopped or finished agent."""
+    success = await chat_session.restart_agent(agent_name)
+    if success:
+        return {"status": "restarted", "agent": agent_name}
+    return JSONResponse(
+        {
+            "status": "failed",
+            "agent": agent_name,
+            "reason": "Agent not found or not stopped/finished",
+        },
+        status_code=400,
+    )
+
+
+@app.get("/agents/states")
+async def get_agent_states():
+    """Get the current state of all agents."""
+    states = await chat_session.get_agent_states()
+    return {"agent_states": states}
+
+
+# ============================================================================
+# Health Check
+# ============================================================================
 
 
 @app.get("/health")

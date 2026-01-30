@@ -25,6 +25,15 @@ class SenderType(str, Enum):
     USER = "user"
 
 
+class AgentState(str, Enum):
+    """Agent lifecycle states."""
+
+    ACTIVE = "active"
+    PAUSED = "paused"
+    STOPPED = "stopped"
+    FINISHED = "finished"
+
+
 # ============================================================================
 # Authentication
 # ============================================================================
@@ -85,6 +94,9 @@ class VoiceSettingsBase(BaseModel):
     tts_provider: str = "openai"
     tts_model: str = "tts-1"
     tts_voice: str = "alloy"
+    tts_format: str = Field(default="mp3", pattern="^(mp3|opus|aac|flac|wav|pcm)$")
+    tts_speed: float = Field(default=1.0, ge=0.25, le=4.0)
+    tts_instructions: Optional[str] = None
     speaking_rate: float = Field(default=1.0, ge=0.5, le=2.0)
     pitch: float = Field(default=0.0, ge=-1.0, le=1.0)
     stt_enabled: bool = False
@@ -97,6 +109,11 @@ class VoiceSettingsUpdate(BaseModel):
     tts_provider: Optional[str] = None
     tts_model: Optional[str] = None
     tts_voice: Optional[str] = None
+    tts_format: Optional[str] = Field(
+        default=None, pattern="^(mp3|opus|aac|flac|wav|pcm)$"
+    )
+    tts_speed: Optional[float] = Field(default=None, ge=0.25, le=4.0)
+    tts_instructions: Optional[str] = None
     speaking_rate: Optional[float] = Field(default=None, ge=0.5, le=2.0)
     pitch: Optional[float] = Field(default=None, ge=-1.0, le=1.0)
     stt_enabled: Optional[bool] = None
@@ -237,7 +254,13 @@ class MessageResponse(MessageBase):
     id: str
     model: Optional[str] = None
     tokens_used: Optional[int] = None
+    # Legacy audio field
     audio: Optional[AudioInfo] = None
+    # New audio fields
+    audio_url: Optional[str] = None
+    audio_format: Optional[str] = None
+    audio_mime: Optional[str] = None
+    audio_cached: Optional[bool] = None
 
     class Config:
         from_attributes = True
@@ -351,10 +374,27 @@ class AuditLogListResponse(BaseModel):
 # ============================================================================
 
 
+class AgentStateInfo(BaseModel):
+    """Information about an agent's current state."""
+
+    state: AgentState
+    changed_at: str
+    reason: Optional[str] = None
+    has_active_task: bool = False
+
+
+class AgentStatesResponse(BaseModel):
+    """Response containing all agent states."""
+
+    agent_states: Dict[str, AgentStateInfo]
+
+
 class SessionStatus(BaseModel):
     running: bool
     topic: Optional[str]
+    session_id: Optional[str]
     last_messages: List[Dict[str, Any]]
+    agent_states: Dict[str, AgentStateInfo]
 
 
 class HealthCheck(BaseModel):
