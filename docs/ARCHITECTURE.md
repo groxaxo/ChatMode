@@ -1,6 +1,12 @@
-# Architecture Overview
+# ChatMode Architecture
 
 This document describes the high-level architecture of ChatMode, including all components, their interactions, and the data flow through the system.
+
+---
+
+## Overview
+
+ChatMode is an AI agent orchestration system that enables multi-agent conversations with long-term memory, text-to-speech synthesis, and admin oversight. The system supports both OpenAI-compatible APIs and Ollama for flexible deployment.
 
 ---
 
@@ -9,7 +15,7 @@ This document describes the high-level architecture of ChatMode, including all c
 ```mermaid
 graph TB
     subgraph "Frontend Layer"
-        WEB[Web Admin Console<br/>unified.html]
+        WEB[Unified Web Console<br/>unified.html]
         API_CLIENT[API Client<br/>JavaScript/Fetch]
     end
 
@@ -73,33 +79,33 @@ graph TB
 
 | Component | File | Description |
 |-----------|------|-------------|
-| **Web Admin Console** | `frontend/unified.html` | Single-page admin interface for starting sessions, viewing messages, and managing conversations |
-| **API Client** | Embedded JavaScript | Polls `/status` endpoint and renders conversation state |
+| **Unified Web Console** | `frontend/unified.html` | Single-page admin interface with tabs for session control, live monitoring, agent overview, and agent management |
+| **API Client** | Embedded JavaScript | Polls `/status` endpoint and renders conversation state in real-time |
 
 ### API Layer
 
 | Component | File | Description |
 |-----------|------|-------------|
-| **FastAPI Server** | `web_admin.py` | Main web server hosting REST API and static files |
-| **REST Endpoints** | Various routes | `/start`, `/stop`, `/status`, `/agents`, `/messages` |
-| **CORS Middleware** | FastAPI middleware | Enables cross-origin requests for frontend development |
+| **FastAPI Server** | `web_admin.py` | Main web server hosting REST API and serving static files |
+| **REST Endpoints** | `routes/*.py` | API routes for session control, agents, audio, authentication, and more |
+| **CORS Middleware** | FastAPI middleware | Enables cross-origin requests for development |
 
 ### Core Engine
 
 | Component | File | Description |
 |-----------|------|-------------|
-| **ChatSession** | `session.py` | Manages conversation state, history, and agent turn-taking |
-| **ChatAgent** | `agent.py` | Individual agent with personality, model config, and memory |
+| **ChatSession** | `session.py` | Manages conversation state, history, and agent turn-taking in a single active session |
+| **ChatAgent** | `agent.py` | Individual agent with personality, model configuration, and memory access |
 | **AdminAgent** | `admin.py` | Specialized agent for generating debate topics |
-| **MemoryStore** | `memory.py` | Long-term semantic memory backed by ChromaDB |
+| **MemoryStore** | `memory.py` | Long-term semantic memory backed by ChromaDB with vector embeddings |
 
 ### Provider Abstraction
 
 | Component | File | Description |
 |-----------|------|-------------|
-| **ChatProvider** | `providers.py` | Abstract interface for LLM chat completion |
+| **ChatProvider** | `providers.py` | Abstract interface for LLM chat completion (OpenAI, Ollama) |
 | **EmbeddingProvider** | `providers.py` | Abstract interface for text embeddings |
-| **TTSClient** | `tts.py` | OpenAI-compatible TTS client |
+| **TTSClient** | `tts.py` | OpenAI-compatible TTS client for voice synthesis |
 
 ---
 
@@ -166,39 +172,16 @@ sequenceDiagram
 
 ---
 
-## Directory Structure
+## Single Session Model
 
-```
-ChatMode/
-├── agent.py              # ChatAgent implementation
-├── admin.py              # AdminAgent for topic generation
-├── agent_config.json     # Active agents configuration
-├── config.py             # Settings dataclass and loader
-├── main.py               # CLI entry point (standalone mode)
-├── memory.py             # MemoryStore (ChromaDB wrapper)
-├── providers.py          # LLM/Embedding provider abstractions
-├── session.py            # ChatSession state management
-├── tts.py                # TTS client
-├── utils.py              # Utility functions
-├── web_admin.py          # FastAPI server
-├── requirements.txt      # Python dependencies
-├── compose.yaml          # Docker Compose configuration
-├── Dockerfile            # Container build
-├── .env                  # Environment variables (create from .env.example)
-│
-├── docs/                 # Documentation (this folder)
-├── data/
-│   └── chroma/           # ChromaDB persistence
-├── frontend/
-│   └── unified.html      # Web admin UI
-├── profiles/             # Agent personality profiles
-│   ├── lawyer.json
-│   ├── crook.json
-│   └── ...
-├── templates/
-│   └── admin.html        # Jinja2 fallback template
-└── tts_out/              # Generated audio files
-```
+ChatMode is designed around a **single active conversation** at a time. This design choice:
+
+- Simplifies state management and reduces complexity
+- Ensures consistent memory and context for all agents
+- Allows admin to maintain focus on one meaningful discussion
+- Prevents resource contention between multiple sessions
+
+To start a new conversation, the admin must first stop any existing session. The system automatically manages this lifecycle through the unified web interface.
 
 ---
 
@@ -219,23 +202,11 @@ All LLM and embedding interactions go through abstract interfaces (`ChatProvider
 ### 3. Agent Profiles as Data
 Agent personalities are stored as JSON files, not code. This enables:
 - Hot-reloading of personalities
-- Non-developer customization
+- Non-developer customization through the web UI
 - Version-controlled personality iterations
 
 ### 4. Progressive Enhancement
 The frontend works with basic HTTP requests, with JavaScript enhancing the experience. No build step required.
-
----
-
-## Scalability Considerations
-
-| Aspect | Current | Scalable Alternative |
-|--------|---------|---------------------|
-| Session State | In-memory | Redis/PostgreSQL |
-| Message Queue | Threading | Celery/RQ |
-| Audio Storage | Local filesystem | S3/Azure Blob |
-| Config Storage | JSON files | Database tables |
-| Multi-instance | Single process | Load balancer + shared state |
 
 ---
 
@@ -277,4 +248,4 @@ graph LR
 
 ---
 
-*Next: [Setup & Deployment](./02-setup-deployment.md)*
+*See also: [Setup Guide](./SETUP.md) | [Configuration](./CONFIG.md) | [Agent System](./AGENTS.md)*
