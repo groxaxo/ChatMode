@@ -613,7 +613,7 @@
     </div>
 
     <!-- Agent Manager Tab -->
-    <div class="tab-content" id="agentManager" style="display:none">
+    <div class="tab-content" id="agentManager">
       <!-- Login Section (shown when not authenticated) -->
       <div id="agent-login-section" style="display:none">
         <section class="card" style="max-width: 500px; margin: 40px auto;">
@@ -1076,14 +1076,10 @@
       const errorEl = document.getElementById('agent-login-error');
 
       try {
-        const body = new URLSearchParams();
-        body.append('username', username);
-        body.append('password', password);
-
         const res = await fetch('/api/v1/auth/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
         });
 
         if (!res.ok) {

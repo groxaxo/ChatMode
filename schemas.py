@@ -65,6 +65,14 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
+class UserListResponse(BaseModel):
+    items: List['UserResponse']
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
 # ============================================================================
 # Agent Settings
 # ============================================================================
@@ -218,6 +226,14 @@ class MessageResponse(MessageBase):
         from_attributes = True
 
 
+class MessageListResponse(BaseModel):
+    items: List[MessageResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
 class ConversationBase(BaseModel):
     topic: str
 
@@ -268,6 +284,14 @@ class VoiceAssetResponse(BaseModel):
     url: str
     created_at: datetime
 
+
+class VoiceAssetListResponse(BaseModel):
+    items: List[VoiceAssetResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
     class Config:
         from_attributes = True
 
@@ -291,11 +315,16 @@ class AuditLogEntry(BaseModel):
         from_attributes = True
 
 
-class AuditLogResponse(BaseModel):
+# Single audit log is just AuditLogEntry
+AuditLogResponse = AuditLogEntry
+
+
+class AuditLogListResponse(BaseModel):
     items: List[AuditLogEntry]
     total: int
     page: int
     per_page: int
+    pages: int
 
 
 # ============================================================================
