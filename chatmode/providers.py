@@ -31,14 +31,64 @@ class OpenAIChatProvider(ChatProvider):
     def __post_init__(self):
         self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
 
-    def chat(self, model: str, messages: List[Dict[str, str]], temperature: float, max_tokens: int, options=None) -> str:
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        return response.choices[0].message.content if response.choices else ""
+    def chat(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+        options=None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: Optional[str] = None,
+    ) -> str:
+        """
+        Generate a chat completion.
+        
+        Args:
+            model: Model name
+            messages: Conversation messages
+            temperature: Sampling temperature
+            max_tokens: Max tokens to generate
+            options: Additional options (ignored for OpenAI)
+            tools: Optional list of tool schemas for function calling
+            tool_choice: How to use tools ("auto", "none", or specific tool)
+            
+        Returns:
+            The response content or tool call information
+        """
+        kwargs = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        
+        if tools:
+            kwargs["tools"] = tools
+            if tool_choice:
+                kwargs["tool_choice"] = tool_choice
+        
+        response = self.client.chat.completions.create(**kwargs)
+        
+        # Check if model returned a tool call
+        choice = response.choices[0] if response.choices else None
+        if choice and hasattr(choice.message, "tool_calls") and choice.message.tool_calls:
+            # Return tool calls as a special marker
+            tool_calls_data = []
+            for tool_call in choice.message.tool_calls:
+                tool_calls_data.append({
+                    "id": tool_call.id,
+                    "type": tool_call.type,
+                    "function": {
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    }
+                })
+            # Return JSON-encoded tool calls with special prefix
+            import json
+            return f"__TOOL_CALLS__:{json.dumps(tool_calls_data)}"
+        
+        return choice.message.content if choice else ""
 
 
 @dataclass
@@ -124,7 +174,22 @@ def build_chat_provider(provider: str, base_url: str, api_key: str) -> ChatProvi
 
 
 def build_embedding_provider(provider: str, base_url: str, api_key: str, model: str) -> EmbeddingProvider:
+    """
+    Build an embedding provider.
+    
+    Supported providers:
+    - openai: OpenAI embeddings API
+    - ollama: Local Ollama embeddings
+    - deepinfra: DeepInfra embeddings API (OpenAI-compatible)
+    - huggingface: HuggingFace Inference API
+    """
     provider = (provider or "openai").lower()
+    
     if provider == "ollama":
         return OllamaEmbeddingProvider(base_url=base_url, model=model)
-    return OpenAIEmbeddingProvider(base_url=base_url, api_key=api_key, model=model)
+    elif provider in ["deepinfra", "huggingface"]:
+        # Both use OpenAI-compatible API format
+        return OpenAIEmbeddingProvider(base_url=base_url, api_key=api_key, model=model)
+    else:
+        # Default to OpenAI
+        return OpenAIEmbeddingProvider(base_url=base_url, api_key=api_key, model=model)
