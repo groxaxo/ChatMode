@@ -374,6 +374,135 @@
         font-size: 1.7rem;
       }
     }
+
+    /* Modal Styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-close:hover {
+      color: var(--text);
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .agent-row {
+      background: rgba(7, 13, 24, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+
+    .agent-row-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .agent-row-title {
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+
+    .agent-row-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .agent-row-actions button {
+      padding: 4px 10px;
+      font-size: 0.7rem;
+    }
+
+    .agent-row-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+
+    .agent-row-meta span {
+      display: block;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--success);
+    }
+
+    .badge-danger {
+      background: rgba(251, 113, 133, 0.2);
+      color: var(--danger);
+    }
   </style>
 </head>
 <body>
@@ -398,6 +527,7 @@
       <button class="tab-btn active" data-tab="control">Session Control</button>
       <button class="tab-btn" data-tab="monitor">Live Monitor</button>
       <button class="tab-btn" data-tab="agents">Agent Overview</button>
+      <button class="tab-btn" data-tab="agentManager">Agent Manager</button>
     </div>
 
     <!-- Control Tab -->
@@ -477,14 +607,126 @@
           <p class="hint">Loading agents...</p>
         </div>
         <div style="margin-top: 16px;">
-          <p class="hint">For full agent management (create, edit, delete profiles), use the Gradio interface:</p>
-          <div style="margin-top: 12px;">
-            <code class="mono" style="background: rgba(7, 13, 24, 0.9); padding: 8px 12px; display: inline-block; border-radius: 8px;">
-              python agent_manager.py
-            </code>
-          </div>
+          <p class="hint">For full agent management, use the Agent Manager tab.</p>
         </div>
       </section>
+    </div>
+
+    <!-- Agent Manager Tab -->
+    <div class="tab-content" id="agentManager">
+      <!-- Login Section (shown when not authenticated) -->
+      <div id="agent-login-section" style="display:none">
+        <section class="card" style="max-width: 500px; margin: 40px auto;">
+          <h2>Login Required</h2>
+          <p class="hint" style="margin-bottom: 16px;">Please login to access Agent Manager.</p>
+          <form id="agent-login-form">
+            <div class="field">
+              <label for="agent-username">Username</label>
+              <input id="agent-username" type="text" placeholder="Enter username" required />
+            </div>
+            <div class="field">
+              <label for="agent-password">Password</label>
+              <input id="agent-password" type="password" placeholder="Enter password" required />
+            </div>
+            <div id="agent-login-error" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 12px; display: none;"></div>
+            <button type="submit" class="btn full">Login</button>
+          </form>
+        </section>
+      </div>
+
+      <!-- Agent Management Section (shown when authenticated) -->
+      <div id="agent-management-section" style="display:none">
+        <div class="layout">
+          <div class="side-column">
+            <section class="card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin-bottom: 0;">Agent Manager</h2>
+                <button class="btn" id="agent-logout-btn" style="padding: 6px 12px; font-size: 0.7rem;">Logout</button>
+              </div>
+              <p class="hint" style="margin-bottom: 12px;">Logged in as: <span id="current-username" style="color: var(--accent);"></span></p>
+              <div class="btn-row">
+                <button class="btn" id="create-agent-btn">Create Agent</button>
+                <button class="btn" id="refresh-agents-btn">Refresh</button>
+              </div>
+            </section>
+          </div>
+
+          <section class="card feed-card">
+            <h2>Agents</h2>
+            <div id="agent-manager-list" class="feed" style="max-height: 600px;">
+              <p class="hint">Loading agents...</p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Agent Edit/Create Modal -->
+      <div id="agent-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 id="agent-modal-title">Create Agent</h2>
+            <button class="modal-close" id="agent-modal-close">&times;</button>
+          </div>
+          <form id="agent-form">
+            <div class="modal-body">
+              <div class="field">
+                <label for="form-agent-name">Name *</label>
+                <input id="form-agent-name" type="text" required placeholder="agent_name" />
+              </div>
+              <div class="field">
+                <label for="form-agent-display-name">Display Name</label>
+                <input id="form-agent-display-name" type="text" placeholder="Friendly Name" />
+              </div>
+              <div class="field">
+                <label for="form-agent-model">Model *</label>
+                <input id="form-agent-model" type="text" required placeholder="gpt-4o" />
+              </div>
+              <div class="field">
+                <label for="form-agent-provider">Provider</label>
+                <input id="form-agent-provider" type="text" placeholder="openai" />
+              </div>
+              <div class="field">
+                <label for="form-agent-system-prompt">System Prompt</label>
+                <textarea id="form-agent-system-prompt" placeholder="You are a helpful assistant..."></textarea>
+              </div>
+              <div class="field">
+                <label for="form-agent-temperature">Temperature</label>
+                <input id="form-agent-temperature" type="number" step="0.1" min="0" max="2" value="0.7" />
+              </div>
+              <div class="field">
+                <label for="form-agent-max-tokens">Max Tokens</label>
+                <input id="form-agent-max-tokens" type="number" min="1" value="4096" />
+              </div>
+              <div class="field">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input id="form-agent-enabled" type="checkbox" checked />
+                  <span>Enabled</span>
+                </label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn" id="agent-form-cancel">Cancel</button>
+              <button type="submit" class="btn" style="background: var(--accent); color: var(--bg);">Save Agent</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Agent JSON View Modal -->
+      <div id="agent-json-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Agent JSON</h2>
+            <button class="modal-close" id="agent-json-modal-close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <pre id="agent-json-content" style="background: rgba(7, 13, 24, 0.9); padding: 16px; border-radius: 8px; overflow-x: auto; max-height: 500px; font-size: 0.85rem;"></pre>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn" id="agent-json-modal-close-btn">Close</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -509,6 +751,8 @@
 
         if (targetTab === 'agents') {
           loadAgents();
+        } else if (targetTab === 'agentManager') {
+          loadAgentManager();
         }
       });
     });
@@ -773,6 +1017,294 @@
 
     refreshStatus();
     setInterval(refreshStatus, 2000);
+
+    // ============================================================================
+    // Agent Manager Functions
+    // ============================================================================
+
+    let agentToken = localStorage.getItem('chatmode_agent_token');
+    let currentAgentUser = null;
+    let editingAgentId = null;
+
+    function loadAgentManager() {
+      if (!agentToken) {
+        document.getElementById('agent-login-section').style.display = 'block';
+        document.getElementById('agent-management-section').style.display = 'none';
+      } else {
+        document.getElementById('agent-login-section').style.display = 'none';
+        document.getElementById('agent-management-section').style.display = 'block';
+        fetchCurrentAgentUser();
+        loadAgentManagerList();
+      }
+    }
+
+    async function agentApiCall(endpoint, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
+      if (agentToken) {
+        headers['Authorization'] = `Bearer ${agentToken}`;
+      }
+
+      const res = await fetch(endpoint, { ...options, headers });
+
+      if (res.status === 401) {
+        // Token expired or invalid
+        agentToken = null;
+        localStorage.removeItem('chatmode_agent_token');
+        loadAgentManager();
+        return null;
+      }
+
+      return res;
+    }
+
+    async function fetchCurrentAgentUser() {
+      const res = await agentApiCall('/api/v1/auth/me');
+      if (res && res.ok) {
+        currentAgentUser = await res.json();
+        document.getElementById('current-username').textContent = currentAgentUser.username;
+      }
+    }
+
+    // Login handler
+    document.getElementById('agent-login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('agent-username').value.trim();
+      const password = document.getElementById('agent-password').value;
+      const errorEl = document.getElementById('agent-login-error');
+
+      try {
+        const res = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          errorEl.textContent = err.detail?.message || 'Login failed';
+          errorEl.style.display = 'block';
+          return;
+        }
+
+        const data = await res.json();
+        agentToken = data.access_token;
+        localStorage.setItem('chatmode_agent_token', agentToken);
+        errorEl.style.display = 'none';
+        loadAgentManager();
+      } catch (err) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+      }
+    });
+
+    // Logout handler
+    document.getElementById('agent-logout-btn').addEventListener('click', async () => {
+      await agentApiCall('/api/v1/auth/logout', { method: 'POST' });
+      agentToken = null;
+      currentAgentUser = null;
+      localStorage.removeItem('chatmode_agent_token');
+      loadAgentManager();
+    });
+
+    // Load agent list
+    async function loadAgentManagerList() {
+      const listEl = document.getElementById('agent-manager-list');
+      listEl.innerHTML = '<p class="hint">Loading agents...</p>';
+
+      const res = await agentApiCall('/api/v1/agents/?page=1&per_page=100');
+      if (!res || !res.ok) {
+        listEl.innerHTML = '<p class="hint" style="color: var(--danger);">Failed to load agents.</p>';
+        return;
+      }
+
+      const data = await res.json();
+      const agents = data.items || [];
+
+      if (agents.length === 0) {
+        listEl.innerHTML = '<p class="hint">No agents found. Create one to get started!</p>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+      agents.forEach(agent => {
+        const row = document.createElement('div');
+        row.className = 'agent-row';
+
+        const enabledBadge = agent.enabled 
+          ? '<span class="badge badge-success">Enabled</span>'
+          : '<span class="badge badge-danger">Disabled</span>';
+
+        row.innerHTML = `
+          <div class="agent-row-header">
+            <div>
+              <div class="agent-row-title">${agent.display_name || agent.name}</div>
+              <div class="mono" style="font-size: 0.75rem; color: var(--muted);">${agent.name}</div>
+            </div>
+            <div class="agent-row-actions">
+              <button class="btn" data-action="edit" data-id="${agent.id}">Edit</button>
+              <button class="btn" data-action="json" data-id="${agent.id}">JSON</button>
+              <button class="btn danger" data-action="delete" data-id="${agent.id}">Delete</button>
+            </div>
+          </div>
+          <div class="agent-row-meta">
+            <span>Model: ${agent.model}</span>
+            <span>Provider: ${agent.provider || 'openai'}</span>
+            <span>Status: ${enabledBadge}</span>
+          </div>
+        `;
+
+        listEl.appendChild(row);
+      });
+
+      // Attach event listeners
+      listEl.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+        btn.addEventListener('click', () => openEditAgentModal(btn.dataset.id));
+      });
+
+      listEl.querySelectorAll('button[data-action="json"]').forEach(btn => {
+        btn.addEventListener('click', () => openAgentJsonModal(btn.dataset.id));
+      });
+
+      listEl.querySelectorAll('button[data-action="delete"]').forEach(btn => {
+        btn.addEventListener('click', () => deleteAgentConfirm(btn.dataset.id));
+      });
+    }
+
+    // Refresh agents button
+    document.getElementById('refresh-agents-btn').addEventListener('click', loadAgentManagerList);
+
+    // Create agent button
+    document.getElementById('create-agent-btn').addEventListener('click', openCreateAgentModal);
+
+    function openCreateAgentModal() {
+      editingAgentId = null;
+      document.getElementById('agent-modal-title').textContent = 'Create Agent';
+      document.getElementById('agent-form').reset();
+      document.getElementById('form-agent-temperature').value = '0.7';
+      document.getElementById('form-agent-max-tokens').value = '4096';
+      document.getElementById('form-agent-enabled').checked = true;
+      document.getElementById('agent-modal').style.display = 'flex';
+    }
+
+    async function openEditAgentModal(agentId) {
+      editingAgentId = agentId;
+      document.getElementById('agent-modal-title').textContent = 'Edit Agent';
+
+      const res = await agentApiCall(`/api/v1/agents/${agentId}`);
+      if (!res || !res.ok) {
+        alert('Failed to load agent details.');
+        return;
+      }
+
+      const agent = await res.json();
+
+      document.getElementById('form-agent-name').value = agent.name || '';
+      document.getElementById('form-agent-display-name').value = agent.display_name || '';
+      document.getElementById('form-agent-model').value = agent.model || '';
+      document.getElementById('form-agent-provider').value = agent.provider || '';
+      document.getElementById('form-agent-system-prompt').value = agent.system_prompt || '';
+      document.getElementById('form-agent-temperature').value = agent.temperature || 0.7;
+      document.getElementById('form-agent-max-tokens').value = agent.max_tokens || 4096;
+      document.getElementById('form-agent-enabled').checked = agent.enabled !== false;
+
+      document.getElementById('agent-modal').style.display = 'flex';
+    }
+
+    async function openAgentJsonModal(agentId) {
+      const res = await agentApiCall(`/api/v1/agents/${agentId}`);
+      if (!res || !res.ok) {
+        alert('Failed to load agent details.');
+        return;
+      }
+
+      const agent = await res.json();
+      document.getElementById('agent-json-content').textContent = JSON.stringify(agent, null, 2);
+      document.getElementById('agent-json-modal').style.display = 'flex';
+    }
+
+    async function deleteAgentConfirm(agentId) {
+      if (!confirm('Are you sure you want to delete this agent? This action cannot be undone.')) {
+        return;
+      }
+
+      const res = await agentApiCall(`/api/v1/agents/${agentId}`, { method: 'DELETE' });
+      if (!res || !res.ok) {
+        alert('Failed to delete agent.');
+        return;
+      }
+
+      alert('Agent deleted successfully.');
+      loadAgentManagerList();
+    }
+
+    // Close modals
+    document.getElementById('agent-modal-close').addEventListener('click', () => {
+      document.getElementById('agent-modal').style.display = 'none';
+    });
+
+    document.getElementById('agent-form-cancel').addEventListener('click', () => {
+      document.getElementById('agent-modal').style.display = 'none';
+    });
+
+    document.getElementById('agent-json-modal-close').addEventListener('click', () => {
+      document.getElementById('agent-json-modal').style.display = 'none';
+    });
+
+    document.getElementById('agent-json-modal-close-btn').addEventListener('click', () => {
+      document.getElementById('agent-json-modal').style.display = 'none';
+    });
+
+    // Save agent form
+    document.getElementById('agent-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const agentData = {
+        name: document.getElementById('form-agent-name').value.trim(),
+        display_name: document.getElementById('form-agent-display-name').value.trim() || null,
+        model: document.getElementById('form-agent-model').value.trim(),
+        provider: document.getElementById('form-agent-provider').value.trim() || 'openai',
+        system_prompt: document.getElementById('form-agent-system-prompt').value.trim() || null,
+        temperature: parseFloat(document.getElementById('form-agent-temperature').value) || 0.7,
+        max_tokens: parseInt(document.getElementById('form-agent-max-tokens').value) || 4096,
+        enabled: document.getElementById('form-agent-enabled').checked
+      };
+
+      const method = editingAgentId ? 'PUT' : 'POST';
+      const endpoint = editingAgentId 
+        ? `/api/v1/agents/${editingAgentId}`
+        : '/api/v1/agents/';
+
+      const res = await agentApiCall(endpoint, {
+        method,
+        body: JSON.stringify(agentData)
+      });
+
+      if (!res || !res.ok) {
+        const err = await res.json();
+        alert(`Failed to save agent: ${err.detail?.message || 'Unknown error'}`);
+        return;
+      }
+
+      document.getElementById('agent-modal').style.display = 'none';
+      alert(editingAgentId ? 'Agent updated successfully.' : 'Agent created successfully.');
+      loadAgentManagerList();
+    });
+
+    // Click outside modal to close
+    document.getElementById('agent-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'agent-modal') {
+        document.getElementById('agent-modal').style.display = 'none';
+      }
+    });
+
+    document.getElementById('agent-json-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'agent-json-modal') {
+        document.getElementById('agent-json-modal').style.display = 'none';
+      }
+    });
   </script>
 </body>
 </html>
