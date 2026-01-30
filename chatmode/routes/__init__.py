@@ -10,6 +10,7 @@ from .audio import router as audio_router
 from .conversations import router as conversations_router
 from .users import router as users_router
 from .audit_routes import router as audit_router
+from .advanced import router as advanced_router
 
 # List of all routers for easy registration
 all_routers = [
@@ -18,7 +19,8 @@ all_routers = [
     audio_router,
     conversations_router,
     users_router,
-    audit_router
+    audit_router,
+    advanced_router,
 ]
 
 __all__ = [
@@ -28,5 +30,6 @@ __all__ = [
     "conversations_router",
     "users_router",
     "audit_router",
+    "advanced_router",
     "all_routers"
 ]
