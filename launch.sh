@@ -15,23 +15,19 @@ show_menu() {
     echo "     Single-page app with all features"
     echo "     → http://localhost:8000"
     echo ""
-    echo "  2) 🤖 Start Agent Profile Manager"
-    echo "     Visual editor for agent profiles"
-    echo "     → http://localhost:7860"
+    echo "  2) 📋 List Agents (CLI)"
     echo ""
-    echo "  3) 📋 List Agents (CLI)"
+    echo "  3) ▶️  Start Session (CLI)"
     echo ""
-    echo "  4) ▶️  Start Session (CLI)"
+    echo "  4) 📊 Check Status (CLI)"
     echo ""
-    echo "  5) 📊 Check Status (CLI)"
+    echo "  5) 🛑 Stop Session (CLI)"
     echo ""
-    echo "  6) 🛑 Stop Session (CLI)"
-    echo ""
-    echo "  7) 📖 View Documentation"
+    echo "  6) 📖 View Documentation"
     echo ""
     echo "  0) Exit"
     echo ""
-    echo -n "Enter choice [0-7]: "
+    echo -n "Enter choice [0-6]: "
 }
 
 while true; do
@@ -48,24 +44,11 @@ while true; do
             ;;
         2)
             echo ""
-            echo "Checking Gradio installation..."
-            if ! conda run -n base python -c "import gradio" 2>/dev/null; then
-                echo "Gradio not installed. Installing..."
-                conda run -n base pip install gradio
-            fi
-            echo ""
-            echo "Starting Agent Profile Manager..."
-            echo "Press Ctrl+C to stop"
-            echo ""
-            conda run -n base python agent_profile_manager.py
-            ;;
-        3)
-            echo ""
             conda run -n base python agent_manager.py list-agents
             echo ""
             read -p "Press Enter to continue..."
             ;;
-        4)
+        3)
             echo ""
             echo -n "Enter topic: "
             read topic
@@ -77,19 +60,19 @@ while true; do
             echo ""
             read -p "Press Enter to continue..."
             ;;
-        5)
+        4)
             echo ""
             conda run -n base python agent_manager.py status
             echo ""
             read -p "Press Enter to continue..."
             ;;
-        6)
+        5)
             echo ""
             conda run -n base python agent_manager.py stop
             echo ""
             read -p "Press Enter to continue..."
             ;;
-        7)
+        6)
             echo ""
             if [ -f "UNIFIED_INTERFACE_GUIDE.md" ]; then
                 less UNIFIED_INTERFACE_GUIDE.md
