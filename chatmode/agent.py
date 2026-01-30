@@ -154,6 +154,27 @@ class ChatAgent:
             token_counter=approximate_tokens,
         )
 
+    def _safe_json_loads(self, raw_args: str) -> Dict:
+        """
+        Safely parse JSON, returning empty dict on failure.
+        
+        Args:
+            raw_args: JSON string that may be invalid
+            
+        Returns:
+            Parsed dict or empty dict if invalid
+        """
+        try:
+            if isinstance(raw_args, str):
+                return json.loads(raw_args)
+            elif isinstance(raw_args, dict):
+                return raw_args
+            else:
+                return {}
+        except (json.JSONDecodeError, TypeError) as e:
+            print(f"Warning: Failed to parse tool arguments: {e}")
+            return {}
+    
     def generate_response(
         self, topic: str, conversation_history: List[Dict[str, str]]
     ) -> Tuple[str, Optional[str]]:
@@ -169,7 +190,7 @@ class ChatAgent:
             except Exception as e:
                 print(f"Warning: Failed to get MCP tools: {e}")
         
-        response = self.chat_provider.chat(
+        completion = self.chat_provider.chat(
             model=self.model or self.settings.default_chat_model,
             messages=messages,
             temperature=self.settings.temperature,
@@ -179,52 +200,85 @@ class ChatAgent:
             tool_choice="auto" if tools else None,
         )
         
-        # Handle tool calls
-        if response.startswith("__TOOL_CALLS__:"):
-            tool_calls_json = response[len("__TOOL_CALLS__:"):]
-            tool_calls = json.loads(tool_calls_json)
+        # Check for tool calls using the robust pattern from problem statement
+        # msg = completion.choices[0].message
+        # tool_calls = getattr(msg, "tool_calls", None) or msg.get("tool_calls")
+        tool_calls = None
+        if completion:
+            tool_calls = getattr(completion, "tool_calls", None)
+            if not tool_calls and hasattr(completion, "get"):
+                tool_calls = completion.get("tool_calls")
+        
+        # Handle tool calls with proper message format
+        if tool_calls:
+            # Add the assistant's message with tool calls to conversation
+            assistant_msg = {
+                "role": "assistant",
+                "content": getattr(completion, "content", None) or "",
+            }
+            # OpenAI API expects tool_calls in the assistant message
+            if hasattr(completion, "tool_calls"):
+                # Convert to dict format for messages
+                assistant_msg["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        }
+                    }
+                    for tc in completion.tool_calls
+                ]
+            messages.append(assistant_msg)
             
             # Execute each tool call
-            tool_results = []
-            for call in tool_calls:
-                func_name = call["function"]["name"]
+            for tc in tool_calls:
+                tool_call_id = tc.id
+                tool_name = tc.function.name
+                raw_args = tc.function.arguments  # string; may be invalid JSON
+                
+                # Safe JSON parsing with fallback
+                args = self._safe_json_loads(raw_args)
                 
                 # Security: Verify tool is in allowed_tools list
-                if func_name not in self.allowed_tools:
-                    tool_results.append(f"Tool {func_name} is not allowed for this agent")
-                    continue
+                if tool_name not in self.allowed_tools:
+                    result = {"error": f"Tool {tool_name} is not allowed for this agent"}
+                else:
+                    # Call the tool
+                    try:
+                        result = asyncio.run(
+                            self.mcp_client.call_tool(tool_name, args)
+                        )
+                    except Exception as e:
+                        result = {"error": str(e)}
                 
-                func_args = json.loads(call["function"]["arguments"]) if isinstance(
-                    call["function"]["arguments"], str
-                ) else call["function"]["arguments"]
-                
-                # Call the tool
-                try:
-                    result = asyncio.run(
-                        self.mcp_client.call_tool(func_name, func_args)
-                    )
-                    tool_results.append(f"Tool {func_name} returned: {result}")
-                except Exception as e:
-                    tool_results.append(f"Tool {func_name} failed: {e}")
+                # Add tool result in proper format with role="tool"
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,  # required
+                    "content": json.dumps(result)  # or plain text
+                })
             
-            # Send tool results back to LLM for natural language response
-            tool_result_text = "\n".join(tool_results)
-            
-            # Append tool results to messages and ask LLM to respond
-            messages_with_tools = messages + [
-                {"role": "assistant", "content": f"[Tool execution results]\n{tool_result_text}"},
-                {"role": "user", "content": "Based on the tool results above, provide a natural language response."}
-            ]
-            
-            # Get final response from LLM
-            response = self.chat_provider.chat(
+            # Second call: model integrates tool output into natural language
+            # Don't pass tools again to avoid infinite loops
+            completion = self.chat_provider.chat(
                 model=self.model or self.settings.default_chat_model,
-                messages=messages_with_tools,
+                messages=messages,
                 temperature=self.settings.temperature,
                 max_tokens=self.settings.max_output_tokens,
                 options=self.params,
+                # Explicitly no tools on second call
             )
-
+        
+        # Extract final response content
+        response = ""
+        if completion:
+            if hasattr(completion, "content"):
+                response = completion.content or ""
+            elif isinstance(completion, str):
+                response = completion
+        
         output_path = None
         if self.settings.tts_enabled and self.tts_client:
             output_path = self.tts_client.speak(
