@@ -4,8 +4,8 @@ import threading
 import time
 from typing import List, Dict, Optional
 
-from agent import ChatAgent
-from config import Settings
+from .agent import ChatAgent
+from .config import Settings
 
 
 def load_agents(settings: Settings) -> List[ChatAgent]:

@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
-from models import Base, create_all_tables
+from .models import Base, create_all_tables
 
 # Database URL from environment, defaulting to SQLite
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/chatmode.db")

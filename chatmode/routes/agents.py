@@ -7,18 +7,18 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import math
 
-from database import get_db
-from models import User
-from schemas import (
+from ..database import get_db
+from ..models import User
+from ..schemas import (
     AgentCreate, AgentUpdate, AgentResponse, AgentListResponse,
     VoiceSettingsBase, VoiceSettingsUpdate,
     MemorySettingsBase, MemorySettingsUpdate,
     PermissionsBase, PermissionsUpdate,
     ErrorResponse
 )
-from auth import get_current_user, require_role
-from audit import log_action, compute_changes, get_client_ip, AuditAction
-import crud
+from ..auth import get_current_user, require_role
+from ..audit import log_action, compute_changes, get_client_ip, AuditAction
+from .. import crud
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
 

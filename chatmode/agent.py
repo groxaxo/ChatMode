@@ -1,16 +1,16 @@
 import json
 from typing import List, Dict, Optional, Tuple
 
-from config import Settings
-from memory import MemoryStore
-from providers import (
+from .config import Settings
+from .memory import MemoryStore
+from .providers import (
     ChatProvider,
     EmbeddingProvider,
     build_chat_provider,
     build_embedding_provider,
 )
-from tts import TTSClient
-from utils import clean_placeholders, trim_messages_to_context, approximate_tokens
+from .tts import TTSClient
+from .utils import clean_placeholders, trim_messages_to_context, approximate_tokens
 
 
 class ChatAgent:

@@ -7,16 +7,16 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import math
 
-from database import get_db
-from models import User, Conversation, Message
-from schemas import (
+from ..database import get_db
+from ..models import User, Conversation, Message
+from ..schemas import (
     ConversationResponse, ConversationListResponse,
     MessageResponse, MessageListResponse,
     VoiceAssetResponse
 )
-from auth import get_current_user, require_role
-from audit import log_action, get_client_ip, AuditAction
-import crud
+from ..auth import get_current_user, require_role
+from ..audit import log_action, get_client_ip, AuditAction
+from .. import crud
 
 router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
 

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
-from models import AuditLog, User
+from .models import AuditLog, User
 
 
 def log_action(

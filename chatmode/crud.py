@@ -7,15 +7,15 @@ from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from models import (
+from .models import (
     User, Agent, AgentVoiceSettings, AgentMemorySettings, AgentPermissions,
     Conversation, Message, VoiceAsset, AuditLog
 )
-from schemas import (
+from .schemas import (
     AgentCreate, AgentUpdate, VoiceSettingsUpdate, MemorySettingsUpdate,
     PermissionsUpdate, UserCreate, UserUpdate
 )
-from auth import hash_password, encrypt_api_key
+from .auth import hash_password, encrypt_api_key
 
 
 # ============================================================================

@@ -6,10 +6,10 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
-from database import get_db
-from schemas import TokenRequest, TokenResponse, ErrorResponse
-from auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from audit import log_action, get_client_ip, AuditAction
+from ..database import get_db
+from ..schemas import TokenRequest, TokenResponse, ErrorResponse
+from ..auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from ..audit import log_action, get_client_ip, AuditAction
 
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
 
@@ -67,7 +67,7 @@ async def logout(
     Note: With JWT, tokens are stateless. This endpoint is for audit logging.
     For real invalidation, implement a token blacklist.
     """
-    from auth import get_current_user_optional
+    from ..auth import get_current_user_optional
     from fastapi.security import HTTPBearer
     
     security = HTTPBearer(auto_error=False)
@@ -96,7 +96,7 @@ async def get_current_user_info(
     """
     Get current authenticated user info.
     """
-    from auth import get_current_user
+    from ..auth import get_current_user
     from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
     
     security = HTTPBearer()

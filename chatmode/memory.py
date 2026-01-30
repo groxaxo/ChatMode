@@ -6,7 +6,7 @@ from typing import List, Dict, Optional, Any
 
 import chromadb
 
-from providers import EmbeddingProvider
+from .providers import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 

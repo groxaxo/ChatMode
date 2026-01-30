@@ -15,10 +15,10 @@ from unittest.mock import Mock, patch, MagicMock
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import Settings
-from memory import MemoryStore
-from providers import OllamaChatProvider, OllamaEmbeddingProvider, OpenAIChatProvider
-from tts import TTSClient, normalize_text_for_tts
+from chatmode.config import Settings
+from chatmode.memory import MemoryStore
+from chatmode.providers import OllamaChatProvider, OllamaEmbeddingProvider, OpenAIChatProvider
+from chatmode.tts import TTSClient, normalize_text_for_tts
 
 
 # ============================================================================
@@ -241,7 +241,7 @@ class TestSessionManagement:
     
     def test_session_generates_unique_id(self, mock_settings):
         """Test that sessions get unique IDs."""
-        from session_crewai import ChatSession
+        from chatmode.session import ChatSession
         
         session = ChatSession(mock_settings)
         
@@ -250,7 +250,7 @@ class TestSessionManagement:
         
         # After start (mocked), session_id should be set
         with patch.object(session, '_thread'):
-            with patch('session_crewai.load_agents', return_value=[Mock(), Mock()]):
+            with patch('chatmode.session.load_agents', return_value=[Mock(), Mock()]):
                 session.start("Test topic")
         
         assert session.session_id != ""
@@ -258,19 +258,19 @@ class TestSessionManagement:
     
     def test_session_stores_topic(self, mock_settings):
         """Test that topic is stored in session."""
-        from session_crewai import ChatSession
+        from chatmode.session import ChatSession
         
         session = ChatSession(mock_settings)
         
         with patch.object(session, '_thread'):
-            with patch('session_crewai.load_agents', return_value=[Mock(), Mock()]):
+            with patch('chatmode.session.load_agents', return_value=[Mock(), Mock()]):
                 session.start("Is AI conscious?")
         
         assert session.topic == "Is AI conscious?"
     
     def test_session_inject_message(self, mock_settings):
         """Test admin can inject messages."""
-        from session_crewai import ChatSession
+        from chatmode.session import ChatSession
         
         session = ChatSession(mock_settings)
         session.inject_message("Admin", "Please focus on the topic")
@@ -281,7 +281,7 @@ class TestSessionManagement:
     
     def test_session_clear_memory(self, mock_settings):
         """Test memory clearing."""
-        from session_crewai import ChatSession
+        from chatmode.session import ChatSession
         
         session = ChatSession(mock_settings)
         session.inject_message("Admin", "Test message")
@@ -304,8 +304,8 @@ class TestWebAPI:
         """Create test client."""
         from fastapi.testclient import TestClient
         
-        with patch('web_admin_crewai.load_settings', return_value=mock_settings):
-            with patch('web_admin_crewai.ChatSession') as MockSession:
+        with patch('chatmode.main.load_settings', return_value=mock_settings):
+            with patch('chatmode.main.ChatSession') as MockSession:
                 mock_session = Mock()
                 mock_session.is_running.return_value = False
                 mock_session.topic = ""
@@ -314,7 +314,7 @@ class TestWebAPI:
                 mock_session.last_messages = []
                 MockSession.return_value = mock_session
                 
-                from web_admin_crewai import app
+                from chatmode.main import app
                 yield TestClient(app)
     
     def test_status_endpoint(self, client):
