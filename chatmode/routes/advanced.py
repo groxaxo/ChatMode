@@ -131,7 +131,8 @@ async def purge_memory(
         if not agent:
             raise HTTPException(status_code=404, detail=f"Agent {agent_name} not found")
         
-        agent.memory.clear(session_id=session_id, agent_id=agent_name if not session_id else None)
+        # Fixed: Use agent_name for agent_id filter in all cases
+        agent.memory.clear(session_id=session_id, agent_id=agent_name)
         return {
             "status": "success",
             "message": f"Memory purged for agent={agent_name}, session={session_id}",
@@ -201,7 +202,7 @@ async def list_mcp_tools(
 async def call_mcp_tool(
     agent_name: str,
     tool_name: str,
-    arguments: dict = {},
+    arguments: Optional[dict] = None,
     session: ChatSession = Depends(get_chat_session),
 ):
     """
@@ -210,12 +211,15 @@ async def call_mcp_tool(
     Args:
         agent_name: Name of the agent
         tool_name: Name of the tool to call
-        arguments: Tool arguments
+        arguments: Tool arguments (optional, defaults to empty dict)
         session: Current chat session
         
     Returns:
         Tool execution result
     """
+    if arguments is None:
+        arguments = {}
+    
     if not session.agents:
         raise HTTPException(status_code=400, detail="No agents loaded in session")
     

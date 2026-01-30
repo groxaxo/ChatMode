@@ -235,20 +235,20 @@ class ChatAgent:
             # Execute each tool call
             for tc in tool_calls:
                 tool_call_id = tc.id
-                fn = tc.function.name
+                tool_name = tc.function.name
                 raw_args = tc.function.arguments  # string; may be invalid JSON
                 
                 # Safe JSON parsing with fallback
                 args = self._safe_json_loads(raw_args)
                 
                 # Security: Verify tool is in allowed_tools list
-                if fn not in self.allowed_tools:
-                    result = {"error": f"Tool {fn} is not allowed for this agent"}
+                if tool_name not in self.allowed_tools:
+                    result = {"error": f"Tool {tool_name} is not allowed for this agent"}
                 else:
                     # Call the tool
                     try:
                         result = asyncio.run(
-                            self.mcp_client.call_tool(fn, args)
+                            self.mcp_client.call_tool(tool_name, args)
                         )
                     except Exception as e:
                         result = {"error": str(e)}
@@ -261,12 +261,14 @@ class ChatAgent:
                 })
             
             # Second call: model integrates tool output into natural language
+            # Don't pass tools again to avoid infinite loops
             completion = self.chat_provider.chat(
                 model=self.model or self.settings.default_chat_model,
                 messages=messages,
                 temperature=self.settings.temperature,
                 max_tokens=self.settings.max_output_tokens,
                 options=self.params,
+                # Explicitly no tools on second call
             )
         
         # Extract final response content
