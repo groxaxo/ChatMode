@@ -274,7 +274,7 @@ async def list_mcp_tools(
         log_action(
             db=db,
             user=current_user,
-            action=AuditAction.AGENT_READ,
+            action=AuditAction.TOOL_LIST,
             resource_type="mcp_tools",
             resource_id=agent_name,
             changes={"tools_count": len(tools)},
@@ -338,7 +338,7 @@ async def call_mcp_tool(
         log_action(
             db=db,
             user=current_user,
-            action=AuditAction.AGENT_UPDATE,
+            action=AuditAction.TOOL_CALL,
             resource_type="mcp_tool_call",
             resource_id=agent_name,
             changes={
@@ -370,7 +370,7 @@ async def call_mcp_tool(
         log_action(
             db=db,
             user=current_user,
-            action=AuditAction.AGENT_UPDATE,
+            action=AuditAction.TOOL_CALL,
             resource_type="mcp_tool_call",
             resource_id=agent_name,
             changes={
@@ -390,7 +390,7 @@ async def call_mcp_tool(
         log_action(
             db=db,
             user=current_user,
-            action=AuditAction.AGENT_UPDATE,
+            action=AuditAction.TOOL_CALL,
             resource_type="mcp_tool_call",
             resource_id=agent_name,
             changes={
@@ -414,7 +414,7 @@ async def call_mcp_tool(
         log_action(
             db=db,
             user=current_user,
-            action=AuditAction.AGENT_UPDATE,
+            action=AuditAction.TOOL_CALL,
             resource_type="mcp_tool_call",
             resource_id=agent_name,
             changes={
@@ -426,4 +426,4 @@ async def call_mcp_tool(
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent")
         )
-        raise HTTPException(status_code=500, detail=f"Tool call failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Tool call failed")

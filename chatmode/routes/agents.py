@@ -391,19 +391,23 @@ async def clear_agent_memory(
         }
     except Exception as e:
         # Log the error but still audit the attempt
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to clear memory for agent {agent_id}: {e}")
+        
         log_action(
             db=db,
             user=current_user,
             action=AuditAction.AGENT_MEMORY_CLEAR,
             resource_type="agent",
             resource_id=agent_id,
-            changes={"error": str(e), "session_id": session_id},
+            changes={"error": "Memory clear failed", "session_id": session_id},
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent")
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"code": "MEMORY_CLEAR_FAILED", "message": f"Failed to clear memory: {str(e)}"}
+            detail={"code": "MEMORY_CLEAR_FAILED", "message": "Failed to clear memory. Please contact administrator."}
         )
 
 

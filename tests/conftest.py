@@ -49,21 +49,17 @@ def mock_embedding_provider():
 
 
 @pytest.fixture(autouse=True)
-def set_test_env_vars(test_chroma_dir, test_tts_dir):
+def set_test_env_vars(test_chroma_dir, test_tts_dir, monkeypatch):
     """
     Automatically set environment variables for tests.
     
     This fixture runs automatically for all tests (autouse=True).
+    Uses monkeypatch to safely modify environment variables.
     """
-    original_env = os.environ.copy()
+    # Set test environment variables using monkeypatch
+    monkeypatch.setenv('CHROMA_DIR', test_chroma_dir)
+    monkeypatch.setenv('TTS_OUTPUT_DIR', test_tts_dir)
+    monkeypatch.setenv('OPENAI_API_KEY', 'test-key-fixture')
     
-    # Set test environment variables
-    os.environ['CHROMA_DIR'] = test_chroma_dir
-    os.environ['TTS_OUTPUT_DIR'] = test_tts_dir
-    os.environ['OPENAI_API_KEY'] = 'test-key-fixture'
-    
+    # monkeypatch automatically restores original environment after test
     yield
-    
-    # Restore original environment after test
-    os.environ.clear()
-    os.environ.update(original_env)

@@ -121,12 +121,17 @@ class AuditAction:
     
     # Agent actions
     AGENT_CREATE = "agent.create"
+    AGENT_READ = "agent.read"
     AGENT_UPDATE = "agent.update"
     AGENT_DELETE = "agent.delete"
     AGENT_VOICE_UPDATE = "agent.voice_update"
     AGENT_MEMORY_UPDATE = "agent.memory_update"
     AGENT_MEMORY_CLEAR = "agent.memory_clear"
     AGENT_PERMISSIONS_UPDATE = "agent.permissions_update"
+    
+    # Tool actions
+    TOOL_LIST = "tool.list"
+    TOOL_CALL = "tool.call"
     
     # Conversation actions
     CONVERSATION_START = "conversation.start"
