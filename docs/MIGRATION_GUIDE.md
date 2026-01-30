@@ -331,3 +331,185 @@ Future enhancements planned:
 - Performance optimizations
 
 Stay tuned for updates!
+
+---
+
+## Security Updates (v2.0)
+
+### Authentication Required for API Endpoints
+
+**Breaking Change:** Several API endpoints now require authentication.
+
+Previously public endpoints now require authentication:
+- `GET /api/v1/tools/list`
+- `GET /api/v1/transcript/download`
+- `POST /api/v1/memory/purge`
+- `POST /api/v1/tools/call`
+
+**Migration Steps:**
+
+1. **Create a user account:**
+   ```bash
+   # Use the admin UI or API to create users
+   ```
+
+2. **Update API clients to send authentication:**
+   ```python
+   import requests
+   
+   headers = {
+       "Authorization": f"Bearer {access_token}"
+   }
+   
+   response = requests.get(
+       "http://localhost:8000/api/v1/tools/list",
+       headers=headers,
+       params={"agent_name": "researcher"}
+   )
+   ```
+
+3. **Verify user roles:**
+   - Admin: Full access to all endpoints
+   - Moderator: Can manage agents, clear memory, call tools
+   - Viewer: Read-only access
+
+### Enhanced Memory Clearing
+
+**New Feature:** Real ChromaDB deletion instead of just logging.
+
+The `DELETE /api/v1/agents/{agent_id}/memory` endpoint now:
+- Actually deletes embeddings from ChromaDB
+- Returns count of entries cleared
+- Supports session_id query parameter for selective clearing
+- Logs all deletion operations for audit
+
+**Example:**
+```bash
+# Clear all memory for an agent
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/agents/researcher-123/memory
+
+# Clear memory for specific session
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/v1/agents/researcher-123/memory?session_id=abc-123"
+```
+
+### Tool Security Enhancements
+
+**New Validation:** Tool arguments are now validated before execution.
+
+1. **Maximum argument length:** 10,000 characters per field
+2. **Type validation:** Arguments must be a valid JSON dictionary
+3. **Audit logging:** All tool executions are logged with:
+   - Tool name and arguments
+   - Execution result or error
+   - User identity (for manual calls)
+   - IP address and timestamp
+
+**Impact:** Invalid tool calls will be rejected with 400 Bad Request.
+
+### Audit Logging
+
+**New Feature:** Comprehensive audit trail for security-relevant operations.
+
+All operations are logged to the database:
+- Agent creation/update/deletion
+- Memory clearing
+- Tool executions
+- Permission changes
+- Failed authentication attempts
+
+**View audit logs:**
+```bash
+# Via API (admin only)
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/audit/logs?resource_type=agent
+```
+
+---
+
+## Testing and CI/CD
+
+### GitHub Actions Workflow
+
+**New Feature:** Automated testing on every push and pull request.
+
+The CI workflow includes:
+- **Linting:** black, isort, flake8, mypy
+- **Unit Tests:** Python 3.10, 3.11, 3.12
+- **Smoke Tests:** End-to-end testing
+- **Security Scanning:** bandit, safety
+- **Integration Tests:** MCP (manual trigger)
+
+**No action required** - tests run automatically on GitHub.
+
+### Test Environment Improvements
+
+**Fixed:** ChromaDB test isolation issues.
+
+Tests now use:
+- Unique collection names per test run
+- Temporary directories for ChromaDB
+- Environment variable isolation
+- Deterministic test fixtures
+
+**Running tests locally:**
+```bash
+# Install test dependencies
+pip install pytest pytest-cov pytest-asyncio pytest-mock
+
+# Run tests
+pytest tests/ -v
+
+# With coverage
+pytest tests/ --cov=chatmode --cov-report=term-missing
+```
+
+---
+
+## Rollback Instructions
+
+If you need to rollback to the previous version:
+
+1. **Checkout previous version:**
+   ```bash
+   git checkout <previous-tag>
+   ```
+
+2. **Reinstall dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Restart services:**
+   ```bash
+   ./launch.sh
+   ```
+
+**Data Compatibility:** Database schema is backwards compatible. No migrations needed.
+
+---
+
+## Migration Checklist
+
+Use this checklist to track your migration:
+
+- [ ] Updated dependencies (`pip install -r requirements.txt`)
+- [ ] Reviewed new features in agent profiles
+- [ ] Added `extra_prompt` to agents (optional)
+- [ ] Added per-agent memory settings (optional)
+- [ ] Installed MCP servers (optional)
+- [ ] Updated `.env` for alternative providers (optional)
+- [ ] Created user accounts for API access
+- [ ] Updated API clients with authentication headers
+- [ ] Reviewed audit logs to verify security
+- [ ] Tested memory clearing functionality
+- [ ] Verified tool calling with allowed_tools whitelist
+- [ ] Ran tests locally (`pytest tests/ -v`)
+- [ ] Reviewed CI/CD workflow in GitHub Actions
+
+---
+
+**Migration Complete!** Your ChatMode installation is now production-ready with enhanced security, testing, and advanced features.
