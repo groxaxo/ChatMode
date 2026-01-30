@@ -315,10 +315,21 @@ async def update_memory_settings(
 async def clear_agent_memory(
     request: Request,
     agent_id: str,
+    session_id: Optional[str] = Query(None, description="Optional session ID to clear memory for specific session"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin", "moderator"]))
 ):
-    """Clear an agent's long-term memory."""
+    """
+    Clear an agent's long-term memory.
+    
+    This endpoint deletes embeddings from the ChromaDB vector store for the specified agent.
+    If session_id is provided, only memory for that session is cleared.
+    Otherwise, all memory for the agent is cleared.
+    """
+    from ..config import Settings
+    from ..memory import MemoryStore
+    from ..providers import build_embedding_provider
+    
     agent = crud.get_agent(db, agent_id)
     if not agent:
         raise HTTPException(
@@ -326,19 +337,74 @@ async def clear_agent_memory(
             detail={"code": "NOT_FOUND", "message": "Agent not found"}
         )
     
-    # TODO: Implement actual memory clearing via MemoryStore
-    # For now, just log the action
-    
-    log_action(
-        db=db,
-        user=current_user,
-        action=AuditAction.AGENT_MEMORY_CLEAR,
-        resource_type="agent",
-        resource_id=agent_id,
-        ip_address=get_client_ip(request)
-    )
-    
-    return {"status": "memory_cleared", "agent_id": agent_id}
+    # Initialize settings and memory store to perform actual deletion
+    try:
+        settings = Settings()
+        
+        # Build embedding provider for memory store
+        embedding_provider = build_embedding_provider(
+            provider=settings.embedding_provider,
+            base_url=settings.embedding_base_url,
+            api_key=settings.embedding_api_key or settings.openai_api_key,
+            model=settings.embedding_model,
+        )
+        
+        # Create memory store instance for this agent
+        # Use agent name as collection name (matching how ChatAgent initializes it)
+        memory_store = MemoryStore(
+            collection_name=f"{agent.name}_memory",
+            persist_dir=settings.chroma_dir,
+            embedding_provider=embedding_provider,
+        )
+        
+        # Clear memory with appropriate filters
+        entries_before = memory_store.count()
+        memory_store.clear(session_id=session_id, agent_id=agent.name)
+        entries_after = memory_store.count()
+        entries_cleared = entries_before - entries_after
+        
+        # Audit log
+        changes = {
+            "entries_cleared": entries_cleared,
+            "agent_name": agent.name
+        }
+        if session_id:
+            changes["session_id"] = session_id
+        
+        log_action(
+            db=db,
+            user=current_user,
+            action=AuditAction.AGENT_MEMORY_CLEAR,
+            resource_type="agent",
+            resource_id=agent_id,
+            changes=changes,
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("user-agent")
+        )
+        
+        return {
+            "status": "memory_cleared",
+            "agent_id": agent_id,
+            "agent_name": agent.name,
+            "entries_cleared": entries_cleared,
+            "session_id": session_id
+        }
+    except Exception as e:
+        # Log the error but still audit the attempt
+        log_action(
+            db=db,
+            user=current_user,
+            action=AuditAction.AGENT_MEMORY_CLEAR,
+            resource_type="agent",
+            resource_id=agent_id,
+            changes={"error": str(e), "session_id": session_id},
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("user-agent")
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "MEMORY_CLEAR_FAILED", "message": f"Failed to clear memory: {str(e)}"}
+        )
 
 
 # ============================================================================
