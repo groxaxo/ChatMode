@@ -11,7 +11,9 @@ from .config import Settings
 
 
 def load_agents(settings: Settings) -> List[ChatAgent]:
-    config_path = os.path.join(os.path.dirname(__file__), "agent_config.json")
+    # Look for agent_config.json in project root (parent of chatmode package)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(project_root, "agent_config.json")
     with open(config_path, "r") as f:
         config = json.load(f)
 
@@ -48,17 +50,17 @@ class ChatSession:
             self.last_messages = []
             self.session_id = str(uuid.uuid4())  # Generate new session ID
             self.agents = load_agents(self.settings)
-            
+
             # Support arbitrary number of agents (≥1)
             if len(self.agents) < 1:
                 raise RuntimeError("Need at least one agent to start")
-            
+
             # If only one agent, create AdminAgent for interaction
             if len(self.agents) == 1:
                 self.admin_agent = AdminAgent(self.settings)
             else:
                 self.admin_agent = None
-            
+
             self._running = True
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
@@ -104,44 +106,47 @@ class ChatSession:
     def _summarize_old_messages(self, messages: List[Dict[str, str]]) -> str:
         """
         Summarize older messages using LLM to maintain context.
-        
+
         Args:
             messages: List of message dictionaries to summarize
-            
+
         Returns:
             A concise summary of the messages
         """
         if not messages:
             return ""
-        
+
         # Build summary prompt
         conversation_text = "\n".join(
             f"{msg['sender']}: {msg['content']}" for msg in messages
         )
-        
+
         # Use first agent's provider for summarization if available
         if not self.agents:
             return f"[{len(messages)} previous messages]"
-        
+
         try:
             # Try to use the first agent's chat provider
             first_agent = self.agents[0]
-            
+
             summary_prompt = [
                 {
                     "role": "system",
                     "content": "You are a conversation summarizer. Provide a concise summary of the following conversation, capturing key points and arguments.",
                 },
-                {"role": "user", "content": f"Summarize this conversation:\n\n{conversation_text}"},
+                {
+                    "role": "user",
+                    "content": f"Summarize this conversation:\n\n{conversation_text}",
+                },
             ]
-            
+
             summary = first_agent.chat_provider.chat(
                 model=first_agent.model or self.settings.default_chat_model,
                 messages=summary_prompt,
                 temperature=0.5,
                 max_tokens=200,
             )
-            
+
             return summary.strip()
         except Exception as e:
             print(f"Error summarizing messages: {e}")
@@ -154,7 +159,7 @@ class ChatSession:
             if self.admin_agent:
                 # Alternate between the single agent and admin
                 agent = self.agents[0]
-                
+
                 # Agent speaks first
                 if not self.is_running():
                     break
@@ -168,16 +173,21 @@ class ChatSession:
                 self.last_messages.append(entry)
                 if len(self.last_messages) > 8:
                     self.last_messages.pop(0)
-                
+
                 for memory_agent in self.agents:
                     memory_agent.remember_message(
-                        agent.full_name, response, session_id=self.session_id, topic=self.topic
+                        agent.full_name,
+                        response,
+                        session_id=self.session_id,
+                        topic=self.topic,
                     )
-                
+
                 # Admin responds with clarifying question
                 if not self.is_running():
                     break
-                admin_response = self.admin_agent.generate_response(self.topic, self.history)
+                admin_response = self.admin_agent.generate_response(
+                    self.topic, self.history
+                )
                 admin_entry = {
                     "sender": self.admin_agent.full_name,
                     "content": admin_response,
@@ -186,7 +196,7 @@ class ChatSession:
                 self.last_messages.append(admin_entry)
                 if len(self.last_messages) > 8:
                     self.last_messages.pop(0)
-                
+
                 # Summarize if needed
                 if len(self.history) > self.settings.history_max_messages:
                     num_to_summarize = self.settings.history_max_messages // 2
@@ -195,16 +205,22 @@ class ChatSession:
                     self.history = self.history[num_to_summarize:]
                     if summary:
                         self.history.insert(
-                            0, {"sender": "System", "content": f"Previous conversation summary: {summary}"}
+                            0,
+                            {
+                                "sender": "System",
+                                "content": f"Previous conversation summary: {summary}",
+                            },
                         )
-                
+
                 time.sleep(self.settings.sleep_seconds)
             else:
                 # Multi-agent mode - all agents take turns
                 for agent in list(self.agents):
                     if not self.is_running():
                         break
-                    response, audio_path = agent.generate_response(self.topic, self.history)
+                    response, audio_path = agent.generate_response(
+                        self.topic, self.history
+                    )
                     entry = {
                         "sender": agent.full_name,
                         "content": response,
@@ -217,7 +233,10 @@ class ChatSession:
 
                     for memory_agent in self.agents:
                         memory_agent.remember_message(
-                            agent.full_name, response, session_id=self.session_id, topic=self.topic
+                            agent.full_name,
+                            response,
+                            session_id=self.session_id,
+                            topic=self.topic,
                         )
 
                     # Instead of just popping old messages, summarize them
@@ -226,12 +245,16 @@ class ChatSession:
                         num_to_summarize = self.settings.history_max_messages // 2
                         old_messages = self.history[:num_to_summarize]
                         summary = self._summarize_old_messages(old_messages)
-                        
+
                         # Remove old messages and prepend summary
                         self.history = self.history[num_to_summarize:]
                         if summary:
                             self.history.insert(
-                                0, {"sender": "System", "content": f"Previous conversation summary: {summary}"}
+                                0,
+                                {
+                                    "sender": "System",
+                                    "content": f"Previous conversation summary: {summary}",
+                                },
                             )
 
                     time.sleep(self.settings.sleep_seconds)

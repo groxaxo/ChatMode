@@ -15,15 +15,17 @@ app = FastAPI(
     description="AI Multi-Agent Conversation Platform",
     version="2.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 settings = load_settings()
 chat_session = ChatSession(settings)
+
 
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
     init_db()
+
 
 # Add CORS for Vite frontend
 app.add_middleware(
@@ -36,7 +38,8 @@ app.add_middleware(
 
 # Register API routes
 try:
-    from routes import all_routers
+    from chatmode.routes import all_routers
+
     for router in all_routers:
         app.include_router(router)
 except ImportError as e:
@@ -48,7 +51,9 @@ base_dir = os.path.dirname(__file__)
 default_frontend_dir = os.path.join(base_dir, "frontend")
 reun10n_frontend_dir = os.path.join(base_dir, "Reun10n", "frontend")
 frontend_dir = os.getenv("FRONTEND_DIR") or (
-    reun10n_frontend_dir if os.path.isdir(reun10n_frontend_dir) else default_frontend_dir
+    reun10n_frontend_dir
+    if os.path.isdir(reun10n_frontend_dir)
+    else default_frontend_dir
 )
 
 app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
@@ -64,7 +69,7 @@ def admin_page(request: Request):
     if os.path.exists(unified_path):
         with open(unified_path, "r") as f:
             return HTMLResponse(content=f.read())
-    
+
     # Fallback to template if unified.html is missing
     return templates.TemplateResponse(
         "admin.html",
@@ -136,5 +141,3 @@ def status(request: Request):
             "last_messages": messages,
         }
     )
-
-

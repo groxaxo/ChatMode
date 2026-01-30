@@ -22,46 +22,104 @@ ChatMode is a Python-based platform for creating rich, multi-agent conversations
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Auto-Installer - Recommended)
 
-### Installation
+### Prerequisites
+
+- Python 3.11+
+- Conda (Miniconda or Anaconda)
+- Git
+- Ollama (for local LLM) or OpenAI API key
+
+### One-Line Installation (Linux/macOS)
+
+```bash
+# Clone and auto-install
+git clone https://github.com/groxaxo/ChatMode.git
+cd ChatMode
+./autoinstall.sh
+```
+
+The autoinstaller will:
+- ✅ Create conda environment automatically
+- ✅ Install all dependencies (including bcrypt fix)
+- ✅ Create required directories (data/chroma, tts_out)
+- ✅ Initialize database with admin user
+- ✅ Verify agent_config.json placement
+- ✅ Create launcher script (start.sh)
+- ✅ Offer to launch immediately
+
+### One-Line Installation (Windows)
+
+```cmd
+# Clone and auto-install
+git clone https://github.com/groxaxo/ChatMode.git
+cd ChatMode
+autoinstall.bat
+```
+
+### Manual Installation (Alternative)
+
+If you prefer manual installation:
 
 ```bash
 # Clone repository
 git clone https://github.com/groxaxo/ChatMode.git
 cd ChatMode
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
+# Create conda environment
+conda env create -f environment.yml
+conda activate chatmode
 
-# Install dependencies
-pip install -r requirements.txt
+# Fix bcrypt compatibility
+pip install 'bcrypt>=4.0.0,<4.1.0' passlib==1.7.4
+
+# Create directories and initialize
+mkdir -p data/chroma tts_out
+python bootstrap_admin.py
 
 # Configure environment
 cp .env.example .env
-nano .env  # Add your API keys
+# Edit .env with your API keys
 ```
 
 ### Launch
 
+**Using the auto-generated launcher:**
 ```bash
-# Start the server
-uvicorn web_admin:app --host 0.0.0.0 --port 8000
+./start.sh        # Linux/macOS
+start.bat         # Windows
+```
 
-# Or use the launcher
-./launch.sh
+**Or manually:**
+```bash
+conda activate chatmode
+uvicorn web_admin:app --host 0.0.0.0 --port 8002
 ```
 
 ### Access
 
-Open your browser to **http://localhost:8000**
+Open your browser to **http://localhost:8002**
+
+**Default Login Credentials:**
+- **Username:** `admin`
+- **Password:** `admin`
 
 The unified web interface provides:
 - **Session Control** – Start/stop conversations with custom topics
 - **Live Monitor** – Watch agent discussions in real-time
 - **Agent Overview** – View all configured agents
-- **Agent Manager** – Create/edit/delete agent profiles
+- **Agent Manager** – Create/edit/delete agent profiles (requires login)
+
+### Starting Your First Conversation
+
+1. **Login** with admin / admin123
+2. Go to **Session Control** tab
+3. Enter a topic (e.g., "The future of renewable energy")
+4. Click **Start Session**
+5. Switch to **Live Monitor** to watch agents debate
+
+**Note:** Agents have content filters and may refuse explicit/inappropriate topics. Use professional, educational topics for best results.
 
 ---
 
@@ -105,6 +163,9 @@ Enhance agent behavior with additional prompts:
 
 ### API Endpoints
 
+**Authentication:**
+- `POST /api/v1/auth/login` – Login with username/password, returns JWT token
+
 **Memory Management:**
 - `DELETE /api/v1/agents/{agent_id}/memory?session_id={id}` – Clear agent memory (admin/moderator)
 - `POST /api/v1/memory/purge?agent_name={name}&session_id={id}` – Purge session memory (admin/moderator)
@@ -117,76 +178,6 @@ Enhance agent behavior with additional prompts:
 - `GET /api/v1/transcript/download?format=markdown|csv` – Download conversation transcript (authenticated)
 
 See [Advanced Features Guide](docs/ADVANCED_FEATURES.md) for complete documentation.
-
----
-
-## 📖 Documentation
-
-| Guide | Description |
-|-------|-------------|
-| **[Setup & Deployment](docs/SETUP.md)** | Installation, Ollama setup, Docker deployment |
-| **[Configuration](docs/CONFIG.md)** | Environment variables, agent profiles, tuning parameters |
-| **[Architecture](docs/ARCHITECTURE.md)** | System components, data flow, design principles |
-| **[Agent System](docs/AGENTS.md)** | Creating agents, personality modeling, memory system |
-| **[Voice & Audio](docs/VOICE.md)** | TTS configuration, audio generation, playback |
-| **[Troubleshooting](docs/TROUBLESHOOTING.md)** | Common issues, debugging, FAQ |
-
----
-
-## 🎯 Usage Examples
-
-### Start a Conversation
-
-**Via Web UI:**
-1. Go to **Session Control** tab
-2. Enter topic: *"Is artificial consciousness possible?"*
-3. Click **Start Session**
-4. Switch to **Live Monitor** to watch the discussion
-
-**Via CLI:**
-```bash
-python agent_manager.py start "Is artificial consciousness possible?"
-```
-
-### Create an Agent
-
-**Via Web UI:**
-1. Go to **Agent Manager** tab
-2. Click **Create New Agent**
-3. Fill in details:
-   - **Name**: `Dr. Sophia Chen`
-   - **Model**: `gpt-4o-mini` or `llama3.2:3b`
-   - **Personality**: Define behavior in system prompt
-4. Click **Save**
-
-**Via JSON:**
-```json
-{
-    "name": "Dr. Sophia Chen",
-    "model": "gpt-4o-mini",
-    "api": "openai",
-    "conversing": "You are Dr. Sophia Chen, a philosopher specializing in ethics and consciousness...",
-    "extra_prompt": "Always cite sources and encourage critical thinking.",
-    "memory_top_k": 10,
-    "max_context_tokens": 32000,
-    "speak_model": {
-        "voice": "nova"
-    }
-}
-```
-
-**With MCP Tools:**
-```json
-{
-    "name": "Research Assistant",
-    "model": "gpt-4o",
-    "api": "openai",
-    "conversing": "You are a research assistant with web browsing capabilities...",
-    "mcp_command": "mcp-server-browsermcp",
-    "allowed_tools": ["browser_navigate", "browser_screenshot"],
-    "extra_prompt": "When researching, always verify information from multiple sources."
-}
-```
 
 ---
 
@@ -209,6 +200,11 @@ TTS_API_KEY=sk-your-key
 
 # Storage
 CHROMA_DIR=./data/chroma
+DATABASE_URL=sqlite:///./data/chatmode.db
+
+# Security
+SECRET_KEY=your-secret-key-here
+ALLOWED_ORIGINS=*
 ```
 
 See **[Configuration Guide](docs/CONFIG.md)** for all options.
@@ -221,7 +217,7 @@ See **[Configuration Guide](docs/CONFIG.md)** for all options.
 # Build and run with Docker Compose
 docker compose up -d
 
-# Access at http://localhost:8000
+# Access at http://localhost:8002
 ```
 
 The compose stack includes:
@@ -239,10 +235,12 @@ See **[Setup Guide](docs/SETUP.md#docker-deployment)** for details.
 graph TB
     WEB[Web Interface] --> API[FastAPI Server]
     API --> SESSION[Session Manager]
+    API --> AUTH[Auth System]
     SESSION --> AGENTS[Agents]
     AGENTS --> MEMORY[ChromaDB Memory]
     AGENTS --> LLM[LLM Providers]
     AGENTS --> TTS[TTS Service]
+    AUTH --> DB[(SQLite/PostgreSQL)]
     
     LLM --> OPENAI[OpenAI]
     LLM --> OLLAMA[Ollama]
@@ -254,8 +252,92 @@ graph TB
 - **MemoryStore** – Semantic memory with vector embeddings
 - **Provider Abstraction** – Unified interface for OpenAI/Ollama
 - **TTSClient** – Optional voice synthesis
+- **Auth System** – JWT-based authentication with role-based access
 
 See **[Architecture Guide](docs/ARCHITECTURE.md)** for details.
+
+---
+
+## 🛠️ Troubleshooting
+
+### bcrypt Compatibility Error
+
+**Error:** `ValueError: password cannot be longer than 72 bytes` or bcrypt version issues
+
+**Solution:**
+```bash
+pip install 'bcrypt>=4.0.0,<4.1.0' passlib==1.7.4
+```
+
+### Database Locked (SQLite)
+
+**Error:** `database is locked`
+
+**Solution:** Ensure only one process accesses the database. For production, use PostgreSQL.
+
+### Port Already in Use
+
+**Error:** `Address already in use`
+
+**Solution:** Change the port:
+```bash
+uvicorn web_admin:app --host 0.0.0.0 --port 8003
+```
+
+### Missing API Routes (404 Errors)
+
+**Error:** API endpoints return 404
+
+**Solution:** Ensure routes are properly imported. This was fixed in web_admin.py by changing:
+```python
+from routes import all_routers  # Wrong
+from chatmode.routes import all_routers  # Correct
+```
+
+### Cannot Login
+
+**Error:** "Incorrect username or password"
+
+**Solution:** Reset admin password:
+```bash
+conda activate chatmode
+python bootstrap_admin.py
+```
+
+**Default credentials:** `admin` / `admin`
+
+**Note:** The autoinstaller automatically sets up these credentials. If you manually installed, ensure you ran `python bootstrap_admin.py`.
+
+### Agents Not Responding to Topic
+
+**Issue:** Agents respond but ignore your topic and discuss something else (e.g., "The Ethics of Artificial Creativity")
+
+**Cause:** The LLM's content safety filters are blocking explicit, sexual, or inappropriate topics. Agents are programmed to redirect to safe topics.
+
+**Solution:** Use appropriate, non-explicit topics such as:
+- "The future of artificial intelligence"
+- "Climate change solutions"
+- "Space exploration"
+- "Philosophy of consciousness"
+- "Ethics in technology"
+
+### Conversation Start Errors
+
+**Error:** "Internal Server Error" when starting conversation
+
+**Causes & Solutions:**
+1. **Missing agent_config.json** - Ensure file exists in project root
+2. **Missing data directories** - Run: `mkdir -p data/chroma tts_out`
+3. **Database not initialized** - Run: `python bootstrap_admin.py`
+4. **bcrypt version issue** - Install correct version: `pip install 'bcrypt>=4.0.0,<4.1.0'`
+
+### Agents Configuration Not Found
+
+**Error:** `FileNotFoundError: [Errno 2] No such file or directory: 'agent_config.json'`
+
+**Solution:** This was fixed in `chatmode/session.py`. The system now looks for `agent_config.json` in the project root directory. Ensure your agent profiles are properly configured in this file.
+
+See **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** for more issues.
 
 ---
 
@@ -283,6 +365,7 @@ This project is licensed under the MIT License – see the [LICENSE](LICENSE) fi
 - **FastAPI** – High-performance web framework
 - **OpenAI** – LLM and TTS APIs
 - **Ollama** – Local LLM inference
+- **CrewAI** – Multi-agent orchestration framework
 
 ---
 
