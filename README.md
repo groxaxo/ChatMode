@@ -1,179 +1,222 @@
 # ChatMode
 
-Python multi-agent chat interface with autonomous conversation, long-term memory via embeddings, optional TTS, and a FastAPI admin UI.
+**AI Agent Orchestration System with Multi-Agent Conversations, Long-Term Memory, and Voice Synthesis**
 
-## Quick Start (local)
+ChatMode is a Python-based platform for creating rich, multi-agent conversations. Agents with distinct personalities engage in dynamic discussions, backed by semantic memory (ChromaDB), text-to-speech synthesis, and a unified web admin console. Support for both OpenAI-compatible APIs and Ollama enables flexible deployment from cloud to local.
+
+---
+
+## ✨ Features
+
+- **🤖 Multi-Agent Conversations** – Multiple AI agents with unique personalities engage in structured discussions
+- **🧠 Long-Term Memory** – Semantic memory with ChromaDB vector embeddings persists across sessions  
+- **🎙️ Text-to-Speech** – Optional voice synthesis for agent responses using OpenAI-compatible TTS
+- **🔧 Provider Flexibility** – Supports OpenAI, Ollama, and custom OpenAI-compatible endpoints
+- **🌐 Unified Web Interface** – Single-page admin console for session control, live monitoring, and agent management
+- **📊 Session Management** – Single active conversation model with start/stop/resume controls
+- **👥 Easy Agent Creation** – Create and edit agents through web UI or JSON profiles
+
+---
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
-cd /home/op/ChatMode
+# Clone repository
+git clone https://github.com/groxaxo/ChatMode.git
+cd ChatMode
+
+# Create virtual environment
 python -m venv .venv
-. .venv/bin/activate
+source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
+
+# Install dependencies
 pip install -r requirements.txt
-python main.py
+
+# Configure environment
+cp .env.example .env
+nano .env  # Add your API keys
 ```
 
-You will be prompted for a topic. Leave it blank to auto-generate.
-
-## Admin Web UI
+### Launch
 
 ```bash
-cd /home/op/ChatMode
-python -m uvicorn web_admin:app --host 0.0.0.0 --port 8000
+# Start the server
+uvicorn web_admin:app --host 0.0.0.0 --port 8000
+
+# Or use the launcher
+./launch.sh
 ```
 
-- Admin UI: `http://localhost:8000/`
-- Frontend (copied from the other project):
-  - `http://localhost:8000/frontend/chat.html`
-  - `http://localhost:8000/frontend/index.html`
+### Access
 
-### Frontend directory override
-If you keep the UI in a separate folder, set:
+Open your browser to **http://localhost:8000**
 
-```
-FRONTEND_DIR=/path/to/frontend
-```
+The unified web interface provides:
+- **Session Control** – Start/stop conversations with custom topics
+- **Live Monitor** – Watch agent discussions in real-time
+- **Agent Overview** – View all configured agents
+- **Agent Manager** – Create/edit/delete agent profiles
 
-The server will also automatically use `/home/op/ChatMode/Reun10n/frontend` when present.
+---
 
-## Launching the Whole Stack
+## 📖 Documentation
 
-To run the complete ChatMode system with CrewAI agents and remote Ollama:
+| Guide | Description |
+|-------|-------------|
+| **[Setup & Deployment](docs/SETUP.md)** | Installation, Ollama setup, Docker deployment |
+| **[Configuration](docs/CONFIG.md)** | Environment variables, agent profiles, tuning parameters |
+| **[Architecture](docs/ARCHITECTURE.md)** | System components, data flow, design principles |
+| **[Agent System](docs/AGENTS.md)** | Creating agents, personality modeling, memory system |
+| **[Voice & Audio](docs/VOICE.md)** | TTS configuration, audio generation, playback |
+| **[Troubleshooting](docs/TROUBLESHOOTING.md)** | Common issues, debugging, FAQ |
 
-1. **Ensure Ollama is running** on the remote server (e.g., `100.85.200.51:11434`). Pull required models if needed:
-   ```bash
-   # On the Ollama server
-   ollama pull llama3.2:3b  # or your preferred model
-   ```
+---
 
-2. **Set environment variables** for Ollama and other configs:
-   ```bash
-   export OLLAMA_BASE_URL=http://100.85.200.51:11434
-   export EMBEDDING_PROVIDER=ollama
-   export EMBEDDING_MODEL=llama3.2:3b
-   # Add other .env variables as needed
-   ```
+## 🎯 Usage Examples
 
-3. **Activate the conda environment** and start the backend:
-   ```bash
-   cd /home/op/ChatMode
-   conda activate ChatMode  # or conda run -n ChatMode
-   python -m uvicorn web_admin_crewai:app --host 0.0.0.0 --port 8002
-   ```
+### Start a Conversation
 
-4. **Open the frontend** in your browser:
-   - Admin Console: `http://localhost:8002/frontend/index.html`
-   - Live Monitor: `http://localhost:8002/frontend/chat.html`
+**Via Web UI:**
+1. Go to **Session Control** tab
+2. Enter topic: *"Is artificial consciousness possible?"*
+3. Click **Start Session**
+4. Switch to **Live Monitor** to watch the discussion
 
-The agents are loaded from `agent_config.json` and profiles in `profiles/`. Start a session via the UI to begin the multi-agent discussion.
-
-## CLI Agent Manager
-
-For command-line control of agents without the web UI, featuring beautiful terminal output with Rich:
-
+**Via CLI:**
 ```bash
-cd /home/op/ChatMode
-conda activate ChatMode
-python agent_manager.py --help
+python agent_manager.py start "Is artificial consciousness possible?"
 ```
 
-### Available Commands
+### Create an Agent
 
-- `start <topic>`: Start a new session with the given topic (shows live status)
-- `stop`: Stop the current session
-- `resume`: Resume a paused session (shows live status)
-- `status`: Show current session status and recent messages in a table
-- `list-agents`: List all available agents in a table
-- `inject <sender> <message>`: Inject a message into the ongoing session
-- `clear-memory`: Clear the conversation memory
+**Via Web UI:**
+1. Go to **Agent Manager** tab
+2. Click **Create New Agent**
+3. Fill in details:
+   - **Name**: `Dr. Sophia Chen`
+   - **Model**: `gpt-4o-mini` or `llama3.2:3b`
+   - **Personality**: Define behavior in system prompt
+4. Click **Save**
 
-Example:
-```bash
-python agent_manager.py start "The future of AI"
-python agent_manager.py status
-python agent_manager.py inject Admin "What do you think about quantum computing?"
-python agent_manager.py stop
+**Via JSON:**
+```json
+{
+    "name": "Dr. Sophia Chen",
+    "model": "gpt-4o-mini",
+    "api": "openai",
+    "conversing": "You are Dr. Sophia Chen, a philosopher specializing in ethics and consciousness...",
+    "speak_model": {
+        "voice": "nova"
+    }
+}
 ```
 
-## Configuration (.env)
+---
 
-Create a `.env` in `/home/op/ChatMode` to configure providers. All settings are optional.
+## 🔧 Configuration
 
-### OpenAI-compatible chat/embeddings
+### Basic .env Setup
 
-```bash
-OPENAI_API_KEY=your_key
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o-mini
-
-# Embeddings (can also use OpenAI-compatible)
-EMBEDDING_PROVIDER=openai
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_BASE_URL=https://api.openai.com/v1
-```
-
-### Ollama chat + embeddings (recommended for local)
-
-```bash
-# Chat models per agent are set in profiles/*.json
+```env
+# LLM Provider (choose one)
+OPENAI_API_KEY=sk-your-key
 OLLAMA_BASE_URL=http://localhost:11434
 
-# Embeddings via Ollama
+# Embeddings
 EMBEDDING_PROVIDER=ollama
-EMBEDDING_MODEL=qwen:0.5b
-EMBEDDING_BASE_URL=http://localhost:11434
-```
+EMBEDDING_MODEL=nomic-embed-text
 
-### TTS (OpenAI-compatible)
-
-```bash
+# TTS (optional)
 TTS_ENABLED=true
-TTS_BASE_URL=https://api.openai.com/v1
-TTS_API_KEY=your_key
-TTS_MODEL=tts-1
-TTS_VOICE=alloy
-TTS_OUTPUT_DIR=./tts_out
-```
+TTS_API_KEY=sk-your-key
 
-### Runtime controls
-
-```bash
-MAX_CONTEXT_TOKENS=32000
-MAX_OUTPUT_TOKENS=512
-MEMORY_TOP_K=5
-HISTORY_MAX_MESSAGES=20
-TEMPERATURE=0.9
-SLEEP_SECONDS=2
-ADMIN_USE_LLM=true
-ADMIN_TOPIC=""  # Optional: set topic directly (overrides prompt)
+# Storage
 CHROMA_DIR=./data/chroma
 ```
 
-## Profiles
+See **[Configuration Guide](docs/CONFIG.md)** for all options.
 
-Each agent profile (e.g. `profiles/lawyer.json`) defines:
+---
 
-- `name`: display name
-- `model`: chat model name
-- `api`: `openai` or `ollama`
-- `url`: base URL for that provider
-- `params`: provider-specific options (e.g., `num_ctx: 32768` for Ollama)
-- `speak_model`: optional TTS override per agent
-
-## Docker
-
-Build and run:
+## 🐳 Docker Deployment
 
 ```bash
-docker build -t chat_mode -f /home/op/ChatMode/Dockerfile /home/op/ChatMode
+# Build and run with Docker Compose
+docker compose up -d
 
-docker run --rm -it \
-  --env-file /home/op/ChatMode/.env \
-  -v /home/op/ChatMode/data:/app/data \
-  -p 8000:8000 \
-  chat_mode
+# Access at http://localhost:8000
 ```
 
-Notes:
-- The container persists memory in `/app/data/chroma`.
-- If using Ollama running on the host, set `OLLAMA_BASE_URL` (or agent profile `url`) to `http://host.docker.internal:11434` on macOS/Windows, or use the host network on Linux.
-- For the admin UI in Docker, run: `python -m uvicorn web_admin:app --host 0.0.0.0 --port 8000` inside the container.
+The compose stack includes:
+- ChatMode API server
+- Ollama for local LLM inference (optional)
+- Persistent volumes for data and audio
+
+See **[Setup Guide](docs/SETUP.md#docker-deployment)** for details.
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    WEB[Web Interface] --> API[FastAPI Server]
+    API --> SESSION[Session Manager]
+    SESSION --> AGENTS[Agents]
+    AGENTS --> MEMORY[ChromaDB Memory]
+    AGENTS --> LLM[LLM Providers]
+    AGENTS --> TTS[TTS Service]
+    
+    LLM --> OPENAI[OpenAI]
+    LLM --> OLLAMA[Ollama]
+```
+
+**Key Components:**
+- **Session Manager** – Single active conversation lifecycle
+- **ChatAgent** – Individual agents with personality and memory
+- **MemoryStore** – Semantic memory with vector embeddings
+- **Provider Abstraction** – Unified interface for OpenAI/Ollama
+- **TTSClient** – Optional voice synthesis
+
+See **[Architecture Guide](docs/ARCHITECTURE.md)** for details.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **ChromaDB** – Vector database for semantic memory
+- **FastAPI** – High-performance web framework
+- **OpenAI** – LLM and TTS APIs
+- **Ollama** – Local LLM inference
+
+---
+
+## 📞 Support
+
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/groxaxo/ChatMode/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/groxaxo/ChatMode/discussions)
+
+---
+
+**Ready to get started?** Check out the **[Setup Guide](docs/SETUP.md)** or jump straight in with **[Quick Start](#-quick-start)**! 🚀
