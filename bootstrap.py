@@ -16,9 +16,9 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from database import init_db, get_db, SessionLocal
-from models import User
-from auth import hash_password
+from chatmode.database import init_db, get_db, SessionLocal
+from chatmode.models import User
+from chatmode.auth import hash_password
 import uuid
 
 
@@ -85,7 +85,7 @@ def main():
     print("Bootstrap complete!")
     print()
     print("Next steps:")
-    print("  1. Start the server: uvicorn web_admin:app --reload")
+    print("  1. Start the server: uvicorn chatmode.main:app --reload")
     print("  2. Open: http://localhost:8000")
     print("  3. Navigate to the Agent Manager tab and login with your admin credentials")
     print("  4. (Optional) Run demo_setup.py to create demo agents")

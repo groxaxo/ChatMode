@@ -6,10 +6,10 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
-from database import get_db
-from schemas import TokenRequest, TokenResponse, ErrorResponse
-from auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from audit import log_action, get_client_ip, AuditAction
+from ..database import get_db
+from ..schemas import TokenRequest, TokenResponse, ErrorResponse
+from ..auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from ..audit import log_action, get_client_ip, AuditAction
 
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
 

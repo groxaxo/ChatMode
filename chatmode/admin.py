@@ -1,5 +1,5 @@
-from config import Settings
-from providers import build_chat_provider
+from .config import Settings
+from .providers import build_chat_provider
 
 
 class AdminAgent:

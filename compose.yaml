@@ -1,16 +1,20 @@
 services:
-  backend:
+  chatmode:
     build: .
+    container_name: chatmode
     ports:
-      - "8001:8001"
+      - "8000:8000"
     volumes:
       - ./.env:/app/.env
       - ./data:/app/data
       - ./tts_out:/app/tts_out
       - ./profiles:/app/profiles
       - ./agent_config.json:/app/agent_config.json
+    env_file:
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
@@ -18,3 +22,4 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
+

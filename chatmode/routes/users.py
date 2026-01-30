@@ -7,14 +7,14 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import math
 
-from database import get_db
-from models import User
-from schemas import (
+from ..database import get_db
+from ..models import User
+from ..schemas import (
     UserCreate, UserUpdate, UserResponse, UserListResponse
 )
-from auth import get_current_user, require_role, hash_password
-from audit import log_action, compute_changes, get_client_ip, AuditAction
-import crud
+from ..auth import get_current_user, require_role, hash_password
+from ..audit import log_action, compute_changes, get_client_ip, AuditAction
+from .. import crud
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 

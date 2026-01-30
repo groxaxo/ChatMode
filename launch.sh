@@ -40,7 +40,7 @@ while true; do
             echo "Starting Web Interface..."
             echo "Press Ctrl+C to stop"
             echo ""
-            conda run -n base python web_admin.py
+            conda run -n base uvicorn chatmode.main:app --reload
             ;;
         2)
             echo ""

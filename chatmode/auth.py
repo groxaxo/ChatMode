@@ -13,8 +13,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import User, UserRole
+from .database import get_db
+from .models import User, UserRole
 
 # Security configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")

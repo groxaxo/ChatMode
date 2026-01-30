@@ -9,7 +9,7 @@ import os
 from typing import Optional, Dict, Any
 from crewai import LLM
 
-from config import Settings
+from .config import Settings
 
 
 def create_llm_from_profile(

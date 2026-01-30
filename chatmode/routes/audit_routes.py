@@ -8,11 +8,11 @@ from typing import Optional
 from datetime import datetime, timedelta
 import math
 
-from database import get_db
-from models import User, AuditLog
-from schemas import AuditLogResponse, AuditLogListResponse
-from auth import get_current_user, require_role
-import crud
+from ..database import get_db
+from ..models import User, AuditLog
+from ..schemas import AuditLogResponse, AuditLogListResponse
+from ..auth import get_current_user, require_role
+from .. import crud
 
 router = APIRouter(prefix="/api/v1/audit", tags=["audit"])
 

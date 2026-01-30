@@ -12,12 +12,12 @@ import math
 import aiofiles
 from datetime import datetime
 
-from database import get_db
-from models import User, VoiceAsset
-from schemas import VoiceAssetResponse, VoiceAssetListResponse
-from auth import get_current_user, require_role
-from audit import log_action, get_client_ip, AuditAction
-import crud
+from ..database import get_db
+from ..models import User, VoiceAsset
+from ..schemas import VoiceAssetResponse, VoiceAssetListResponse
+from ..auth import get_current_user, require_role
+from ..audit import log_action, get_client_ip, AuditAction
+from .. import crud
 
 router = APIRouter(prefix="/api/v1/audio", tags=["audio"])
 
