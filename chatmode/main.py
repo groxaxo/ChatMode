@@ -46,6 +46,11 @@ app.add_middleware(
 # Register API routes
 try:
     from .routes import all_routers
+    from .routes.advanced import set_global_chat_session
+    
+    # Set global session for advanced routes
+    set_global_chat_session(chat_session)
+    
     for router in all_routers:
         app.include_router(router)
 except ImportError as e:
