@@ -67,7 +67,7 @@ async def logout(
     Note: With JWT, tokens are stateless. This endpoint is for audit logging.
     For real invalidation, implement a token blacklist.
     """
-    from auth import get_current_user_optional
+    from ..auth import get_current_user_optional
     from fastapi.security import HTTPBearer
     
     security = HTTPBearer(auto_error=False)
@@ -96,7 +96,7 @@ async def get_current_user_info(
     """
     Get current authenticated user info.
     """
-    from auth import get_current_user
+    from ..auth import get_current_user
     from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
     
     security = HTTPBearer()

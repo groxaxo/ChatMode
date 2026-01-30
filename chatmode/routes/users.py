@@ -139,15 +139,6 @@ async def update_user(
             detail={"code": "NOT_FOUND", "message": "User not found"}
         )
     
-    # Check for duplicate username if changing
-    if user_data.username and user_data.username != user.username:
-        existing = crud.get_user_by_username(db, user_data.username)
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"code": "CONFLICT", "message": f"Username '{user_data.username}' already exists"}
-            )
-    
     # Check for duplicate email if changing
     if user_data.email and user_data.email != user.email:
         existing_email = crud.get_user_by_email(db, user_data.email)
@@ -159,15 +150,12 @@ async def update_user(
     
     # Compute changes for audit
     update_data = user_data.dict(exclude_unset=True)
-    changes = compute_changes(user, update_data, [k for k in update_data.keys() if k != "password"])
+    changes = compute_changes(user, update_data, list(update_data.keys()))
     
     updated_user = crud.update_user(db, user_id, user_data)
     
     # Audit log
-    if changes or user_data.password:
-        if user_data.password:
-            changes["password"] = "**changed**"
-        
+    if changes:
         log_action(
             db=db,
             user=current_user,
