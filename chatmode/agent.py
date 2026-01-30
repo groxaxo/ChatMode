@@ -1,4 +1,5 @@
 import json
+import asyncio
 from typing import List, Dict, Optional, Tuple
 
 from .config import Settings
@@ -19,6 +20,8 @@ class ChatAgent:
         self.settings = settings
         self.load_profile(config_file)
         self.history: List[Dict[str, str]] = []
+        self.mcp_client = None  # MCP client for tool calling
+        self.allowed_tools: List[str] = []  # Allowed MCP tools
 
         if not self.api_url:
             self.api_url = (
@@ -53,6 +56,9 @@ class ChatAgent:
                 voice=settings.tts_voice,
                 output_dir=settings.tts_output_dir,
             )
+        
+        # Initialize MCP client if configured
+        self._init_mcp_client()
 
     def load_profile(self, config_file: str) -> None:
         with open(config_file, "r") as f:
@@ -75,6 +81,11 @@ class ChatAgent:
         self.memory_top_k = data.get("memory_top_k")  # Optional override
         self.max_context_tokens = data.get("max_context_tokens")  # Optional override
 
+        # MCP configuration
+        self.mcp_command = data.get("mcp_command")
+        self.mcp_args = data.get("mcp_args", [])
+        self.allowed_tools = data.get("allowed_tools", [])
+
         speak_model = data.get("speak_model", {})
         if speak_model:
             self.tts_model_override = speak_model.get("model")
@@ -82,6 +93,20 @@ class ChatAgent:
         else:
             self.tts_model_override = None
             self.tts_voice_override = None
+    
+    def _init_mcp_client(self) -> None:
+        """Initialize MCP client if configured."""
+        if not self.mcp_command:
+            return
+        
+        try:
+            from .mcp_client import MCPClient
+            self.mcp_client = MCPClient(
+                command=self.mcp_command,
+                args=self.mcp_args,
+            )
+        except Exception as e:
+            print(f"Warning: Failed to initialize MCP client for {self.name}: {e}")
 
     def _build_messages(
         self, topic: str, conversation_history: List[Dict[str, str]]
@@ -133,13 +158,51 @@ class ChatAgent:
         self, topic: str, conversation_history: List[Dict[str, str]]
     ) -> Tuple[str, Optional[str]]:
         messages = self._build_messages(topic, conversation_history)
+        
+        # Prepare tools if MCP client is configured
+        tools = None
+        if self.mcp_client and self.allowed_tools:
+            try:
+                tools = asyncio.run(
+                    self.mcp_client.get_openai_tools(allowed_tools=self.allowed_tools)
+                )
+            except Exception as e:
+                print(f"Warning: Failed to get MCP tools: {e}")
+        
         response = self.chat_provider.chat(
             model=self.model or self.settings.default_chat_model,
             messages=messages,
             temperature=self.settings.temperature,
             max_tokens=self.settings.max_output_tokens,
             options=self.params,
+            tools=tools,
+            tool_choice="auto" if tools else None,
         )
+        
+        # Handle tool calls
+        if response.startswith("__TOOL_CALLS__:"):
+            tool_calls_json = response[len("__TOOL_CALLS__:"):]
+            tool_calls = json.loads(tool_calls_json)
+            
+            # Execute each tool call
+            tool_results = []
+            for call in tool_calls:
+                func_name = call["function"]["name"]
+                func_args = json.loads(call["function"]["arguments"]) if isinstance(
+                    call["function"]["arguments"], str
+                ) else call["function"]["arguments"]
+                
+                # Call the tool
+                try:
+                    result = asyncio.run(
+                        self.mcp_client.call_tool(func_name, func_args)
+                    )
+                    tool_results.append(f"Tool {func_name} returned: {result}")
+                except Exception as e:
+                    tool_results.append(f"Tool {func_name} failed: {e}")
+            
+            # Return tool results as the response
+            response = "\n".join(tool_results)
 
         output_path = None
         if self.settings.tts_enabled and self.tts_client:
