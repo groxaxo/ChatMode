@@ -71,6 +71,10 @@ class ChatAgent:
         if extra_prompt:
             self.system_prompt += "\n" + extra_prompt
 
+        # Per-agent memory and context settings
+        self.memory_top_k = data.get("memory_top_k")  # Optional override
+        self.max_context_tokens = data.get("max_context_tokens")  # Optional override
+
         speak_model = data.get("speak_model", {})
         if speak_model:
             self.tts_model_override = speak_model.get("model")
@@ -88,7 +92,9 @@ class ChatAgent:
                 msg["content"] for msg in conversation_history[-5:]
             )
 
-        memory_snippets = self.memory.query(memory_query, self.settings.memory_top_k)
+        # Use per-agent memory_top_k if set, otherwise use global setting
+        top_k = self.memory_top_k if self.memory_top_k is not None else self.settings.memory_top_k
+        memory_snippets = self.memory.query(memory_query, top_k)
         memory_text = "\n".join(
             f"- {item['text']} (speaker: {item.get('sender', 'unknown')})"
             for item in memory_snippets
@@ -115,9 +121,11 @@ class ChatAgent:
             },
         ]
 
+        # Use per-agent max_context_tokens if set, otherwise use global setting
+        max_tokens = self.max_context_tokens if self.max_context_tokens is not None else self.settings.max_context_tokens
         return trim_messages_to_context(
             messages,
-            max_tokens=self.settings.max_context_tokens,
+            max_tokens=max_tokens,
             token_counter=approximate_tokens,
         )
 
@@ -144,5 +152,14 @@ class ChatAgent:
 
         return (response.strip() if response else "...", output_path)
 
-    def remember_message(self, sender: str, content: str) -> None:
-        self.memory.add(text=content, metadata={"sender": sender})
+    def remember_message(
+        self, sender: str, content: str, session_id: Optional[str] = None, topic: Optional[str] = None
+    ) -> None:
+        """Store a message in long-term memory with session context."""
+        self.memory.add(
+            text=content,
+            metadata={"sender": sender},
+            session_id=session_id,
+            agent_id=self.name,
+            topic=topic,
+        )
