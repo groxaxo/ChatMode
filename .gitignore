@@ -4,3 +4,15 @@ test.db
 # ChromaDB database files
 data/chroma/chroma.sqlite3
 *.sqlite3
+data/chroma/
+data/*.db
+data/*.backup_*
+logs/
+*.log
+frontend/dist/
+frontend/react-app/node_modules/
+frontend/react-app/dist/
+.env
+.env.*
+node_modules/
+!**/.env.example

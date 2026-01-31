@@ -13,6 +13,7 @@ from .audit_routes import router as audit_router
 from .advanced import router as advanced_router
 from .providers import router as providers_router
 from .env_config import router as env_config_router
+from .filter import router as filter_router
 
 # List of all routers for easy registration
 all_routers = [
@@ -25,6 +26,7 @@ all_routers = [
     users_router,
     audit_router,
     advanced_router,
+    filter_router,
 ]
 
 __all__ = [
@@ -37,5 +39,6 @@ __all__ = [
     "advanced_router",
     "providers_router",
     "env_config_router",
+    "filter_router",
     "all_routers",
 ]

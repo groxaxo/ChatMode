@@ -53,8 +53,8 @@ async def startup_event():
     # Initialize providers from environment variables
     try:
         from .database import SessionLocal
-        from .services import initialize_providers, load_providers_from_db
-        from .providers import load_providers_from_db as load_provider_registry
+        from .services import initialize_providers
+        from .providers import load_providers_from_db
 
         db = SessionLocal()
         try:
@@ -109,7 +109,7 @@ async def startup_event():
                 )
 
             # Load providers into runtime registry
-            load_provider_registry(db)
+            load_providers_from_db(db)
             logger.info("✅ Providers loaded into runtime registry")
 
         finally:
@@ -207,9 +207,13 @@ async def log_requests(request: Request, call_next):
 try:
     from .routes import all_routers
     from .routes.advanced import set_global_chat_session
+    from .routes.filter import set_filter_session
 
     # Set global session for advanced routes
     set_global_chat_session(chat_session)
+    
+    # Set session for filter routes
+    set_filter_session(chat_session)
 
     for router in all_routers:
         app.include_router(router)
@@ -234,8 +238,16 @@ frontend_dir = os.getenv("FRONTEND_DIR") or (
     else default_frontend_dir
 )
 
+# React frontend directory (built version)
+react_dist_dir = os.path.join(base_dir, "frontend", "react-app", "dist")
+react_static_path = "/react-static"
+
 if os.path.exists(frontend_dir):
     app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
+
+# Serve React build assets if available
+if os.path.exists(react_dist_dir):
+    app.mount(react_static_path, StaticFiles(directory=react_dist_dir), name="react_static")
 
 # Mount audio directories
 os.makedirs(settings.tts_output_dir, exist_ok=True)
@@ -249,9 +261,38 @@ app.mount(
 app.mount("/audio", StaticFiles(directory="./data/audio"), name="audio")
 
 
+@app.get("/react", response_class=HTMLResponse)
+def react_app(request: Request):
+    """Serve the React frontend."""
+    react_index = os.path.join(react_dist_dir, "index.html")
+    if os.path.exists(react_index):
+        with open(react_index, "r") as f:
+            content = f.read()
+            # Rewrite asset paths to use /react-static/
+            content = content.replace('"/assets/', f'"{react_static_path}/assets/')
+            content = content.replace('"/vite.svg"', f'"{react_static_path}/vite.svg"')
+            return HTMLResponse(content=content)
+    return HTMLResponse(content="<h1>React Frontend Not Built</h1><p>Run: cd frontend/react-app && npm run build</p>")
+
+
+# Check if user prefers React frontend as default
+USE_REACT_FRONTEND = os.getenv("USE_REACT_FRONTEND", "false").lower() in ("true", "1", "yes", "on")
+
+
 @app.get("/", response_class=HTMLResponse)
 def admin_page(request: Request):
-    """Serve the unified admin interface."""
+    """Serve the admin interface (React or classic based on env var)."""
+    # If React frontend preferred and available, redirect to /react
+    if USE_REACT_FRONTEND:
+        react_index = os.path.join(react_dist_dir, "index.html")
+        if os.path.exists(react_index):
+            with open(react_index, "r") as f:
+                content = f.read()
+                content = content.replace('"/assets/', f'"{react_static_path}/assets/')
+                content = content.replace('"/vite.svg"', f'"{react_static_path}/vite.svg"')
+                return HTMLResponse(content=content)
+    
+    # Default: serve unified.html
     unified_path = os.path.join(frontend_dir, "unified.html")
     if os.path.exists(unified_path):
         with open(unified_path, "r") as f:
