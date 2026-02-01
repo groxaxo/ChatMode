@@ -34,14 +34,20 @@ const postForm = async (url, data = {}) => {
   
   if (!res.ok) {
     // Try to parse error as JSON
+    let errorMessage = `Request failed: ${res.status}`;
     try {
       const error = await res.json();
-      throw new Error(error.reason || error.detail?.message || `Request failed: ${res.status}`);
-    } catch (e) {
-      // If JSON parse fails, use status text
-      const text = await res.text();
-      throw new Error(text || `Request failed: ${res.status}`);
+      errorMessage = error.reason || error.detail?.message || errorMessage;
+    } catch (jsonError) {
+      // If JSON parse fails, try to get text
+      try {
+        const text = await res.text();
+        if (text) errorMessage = text;
+      } catch (textError) {
+        // Use default error message
+      }
     }
+    throw new Error(errorMessage);
   }
   
   // Parse successful response as JSON

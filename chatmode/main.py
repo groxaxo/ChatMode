@@ -366,7 +366,8 @@ async def resume_session():
 @app.post("/messages")
 def send_message(content: str = Form(...), sender: str = Form("Admin")):
     """Inject a message into the conversation."""
-    if not content.strip():
+    content = content.strip()
+    if not content:
         return JSONResponse(
             {"status": "failed", "reason": "Message content is required"},
             status_code=400
