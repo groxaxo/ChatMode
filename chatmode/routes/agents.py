@@ -2,29 +2,30 @@
 Agent management routes.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
-from sqlalchemy.orm import Session
-from typing import Optional
 import math
+from typing import Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.orm import Session
+
+from .. import crud
+from ..audit import AuditAction, compute_changes, get_client_ip, log_action
+from ..auth import get_current_user, require_role
 from ..database import get_db
 from ..models import User
 from ..schemas import (
     AgentCreate,
-    AgentUpdate,
-    AgentResponse,
     AgentListResponse,
-    VoiceSettingsBase,
-    VoiceSettingsUpdate,
+    AgentResponse,
+    AgentUpdate,
+    ErrorResponse,
     MemorySettingsBase,
     MemorySettingsUpdate,
     PermissionsBase,
     PermissionsUpdate,
-    ErrorResponse,
+    VoiceSettingsBase,
+    VoiceSettingsUpdate,
 )
-from ..auth import get_current_user, require_role
-from ..audit import log_action, compute_changes, get_client_ip, AuditAction
-from .. import crud
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
 
@@ -62,9 +63,11 @@ def agent_to_response(agent) -> AgentResponse:
             tool_permissions=agent.permissions.tool_permissions or [],
             allowed_topics=agent.permissions.allowed_topics or [],
             blocked_topics=agent.permissions.blocked_topics or [],
-            filter_enabled=agent.permissions.filter_enabled
-            if agent.permissions.filter_enabled is not None
-            else True,
+            filter_enabled=(
+                agent.permissions.filter_enabled
+                if agent.permissions.filter_enabled is not None
+                else True
+            ),
             blocked_words=agent.permissions.blocked_words or [],
             filter_action=agent.permissions.filter_action or "block",
             filter_message=agent.permissions.filter_message
@@ -144,7 +147,7 @@ async def create_agent(
         action=AuditAction.AGENT_CREATE,
         resource_type="agent",
         resource_id=agent.id,
-        changes={"created": agent_data.dict(exclude={"api_key"})},
+        changes={"created": agent_data.model_dump(exclude={"api_key"})},
         ip_address=get_client_ip(request),
         user_agent=request.headers.get("user-agent"),
     )
@@ -186,7 +189,7 @@ async def update_agent(
         )
 
     # Compute changes for audit
-    update_data = agent_data.dict(exclude_unset=True)
+    update_data = agent_data.model_dump(exclude_unset=True)
     changes = compute_changes(agent, update_data, list(update_data.keys()))
 
     updated_agent = crud.update_agent(
@@ -271,7 +274,7 @@ async def update_voice_settings(
         action=AuditAction.AGENT_VOICE_UPDATE,
         resource_type="agent",
         resource_id=agent_id,
-        changes=settings.dict(exclude_unset=True),
+        changes=settings.model_dump(exclude_unset=True),
         ip_address=get_client_ip(request),
     )
 
@@ -318,7 +321,7 @@ async def update_memory_settings(
         action=AuditAction.AGENT_MEMORY_UPDATE,
         resource_type="agent",
         resource_id=agent_id,
-        changes=settings.dict(exclude_unset=True),
+        changes=settings.model_dump(exclude_unset=True),
         ip_address=get_client_ip(request),
     )
 
@@ -465,7 +468,7 @@ async def update_permissions(
         action=AuditAction.AGENT_PERMISSIONS_UPDATE,
         resource_type="agent",
         resource_id=agent_id,
-        changes=permissions.dict(exclude_unset=True),
+        changes=permissions.model_dump(exclude_unset=True),
         ip_address=get_client_ip(request),
     )
 
@@ -473,9 +476,9 @@ async def update_permissions(
         tool_permissions=updated.tool_permissions or [],
         allowed_topics=updated.allowed_topics or [],
         blocked_topics=updated.blocked_topics or [],
-        filter_enabled=updated.filter_enabled
-        if updated.filter_enabled is not None
-        else True,
+        filter_enabled=(
+            updated.filter_enabled if updated.filter_enabled is not None else True
+        ),
         blocked_words=updated.blocked_words or [],
         filter_action=updated.filter_action or "block",
         filter_message=updated.filter_message

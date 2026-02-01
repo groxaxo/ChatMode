@@ -4,8 +4,9 @@ Database connection and session management.
 
 import os
 from contextlib import contextmanager
+
 from sqlalchemy import create_engine, event, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from .models import Base, create_all_tables
@@ -29,6 +30,7 @@ if DATABASE_URL.startswith("sqlite"):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+
 else:
     # PostgreSQL/MySQL settings
     engine = create_engine(

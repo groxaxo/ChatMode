@@ -4,16 +4,16 @@ ChatMode API Routes Package.
 This module exports all API routers for the Agent Manager system.
 """
 
-from .agents import router as agents_router
-from .auth_routes import router as auth_router
-from .audio import router as audio_router
-from .conversations import router as conversations_router
-from .users import router as users_router
-from .audit_routes import router as audit_router
 from .advanced import router as advanced_router
-from .providers import router as providers_router
+from .agents import router as agents_router
+from .audio import router as audio_router
+from .audit_routes import router as audit_router
+from .auth_routes import router as auth_router
+from .conversations import router as conversations_router
 from .env_config import router as env_config_router
 from .filter import router as filter_router
+from .providers import router as providers_router
+from .users import router as users_router
 
 # List of all routers for easy registration
 all_routers = [

@@ -7,7 +7,7 @@ agent_config.json used by the runtime session loader.
 
 import json
 import os
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
 
@@ -78,10 +78,12 @@ def sync_profiles_from_db(
             profile["allowed_tools"] = agent.permissions.tool_permissions
 
         _write_profile(profile_path, profile)
-        synced_agents.append({
-            "name": agent.name,
-            "file": profile_path,
-        })
+        synced_agents.append(
+            {
+                "name": agent.name,
+                "file": profile_path,
+            }
+        )
 
     config_path = os.path.join(project_root, "agent_config.json")
     with open(config_path, "w") as f:

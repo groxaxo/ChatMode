@@ -9,28 +9,16 @@ This module defines SQLAlchemy models for:
 - Audit logging
 """
 
+import enum
 import uuid
 from datetime import datetime
-from typing import Optional, List
-from sqlalchemy import (
-    Column,
-    String,
-    Text,
-    Boolean,
-    Float,
-    Integer,
-    DateTime,
-    ForeignKey,
-    JSON,
-    Index,
-    UniqueConstraint,
-    CheckConstraint,
-    Enum as SQLEnum,
-)
-from sqlalchemy.dialects.postgresql import UUID, INET, ARRAY
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-import enum
+from typing import List, Optional
+
+from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import ARRAY, INET, UUID
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 

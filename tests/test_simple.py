@@ -6,6 +6,7 @@ Run this directly with: python3 tests/test_simple.py
 import asyncio
 import tempfile
 from pathlib import Path
+import pytest
 
 # Test text normalization
 from chatmode.tts_provider import (
@@ -22,27 +23,27 @@ def test_text_normalization():
 
     # Test bold markdown
     result = normalize_text_for_tts("This is **bold** text")
-    assert result == "This is bold text", (
-        f"Expected 'This is bold text', got '{result}'"
-    )
+    assert (
+        result == "This is bold text"
+    ), f"Expected 'This is bold text', got '{result}'"
 
     # Test italic markdown
     result = normalize_text_for_tts("This is *italic* text")
-    assert result == "This is italic text", (
-        f"Expected 'This is italic text', got '{result}'"
-    )
+    assert (
+        result == "This is italic text"
+    ), f"Expected 'This is italic text', got '{result}'"
 
     # Test links
     result = normalize_text_for_tts("Check out [this link](http://example.com) here")
-    assert result == "Check out this link here", (
-        f"Expected 'Check out this link here', got '{result}'"
-    )
+    assert (
+        result == "Check out this link here"
+    ), f"Expected 'Check out this link here', got '{result}'"
 
     # Test whitespace
     result = normalize_text_for_tts("Multiple   spaces    and\n\nnewlines")
-    assert result == "Multiple spaces and newlines", (
-        f"Expected 'Multiple spaces and newlines', got '{result}'"
-    )
+    assert (
+        result == "Multiple spaces and newlines"
+    ), f"Expected 'Multiple spaces and newlines', got '{result}'"
 
     print("✓ Text normalization tests passed")
 
@@ -112,6 +113,8 @@ def test_audio_storage():
         print("✓ Audio storage tests passed")
 
 
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Standalone script")
 async def test_agent_state_manager():
     """Test agent state management."""
     print("Testing agent state management...")
@@ -169,12 +172,12 @@ async def test_agent_state_manager():
     assert "agent-3" in active, "Active agent should be in active list"
 
     # Test unknown agent operations
-    assert not await manager.pause_agent("unknown"), (
-        "Pause on unknown agent should fail"
-    )
-    assert not await manager.resume_agent("unknown"), (
-        "Resume on unknown agent should fail"
-    )
+    assert not await manager.pause_agent(
+        "unknown"
+    ), "Pause on unknown agent should fail"
+    assert not await manager.resume_agent(
+        "unknown"
+    ), "Resume on unknown agent should fail"
     assert not await manager.stop_agent("unknown"), "Stop on unknown agent should fail"
 
     print("✓ Agent state management tests passed")

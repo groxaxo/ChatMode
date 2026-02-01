@@ -2,19 +2,18 @@
 User management routes (admin only).
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
-from sqlalchemy.orm import Session
-from typing import Optional
 import math
+from typing import Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.orm import Session
+
+from .. import crud
+from ..audit import AuditAction, compute_changes, get_client_ip, log_action
+from ..auth import get_current_user, hash_password, require_role
 from ..database import get_db
 from ..models import User
-from ..schemas import (
-    UserCreate, UserUpdate, UserResponse, UserListResponse
-)
-from ..auth import get_current_user, require_role, hash_password
-from ..audit import log_action, compute_changes, get_client_ip, AuditAction
-from .. import crud
+from ..schemas import UserCreate, UserListResponse, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -29,7 +28,7 @@ def user_to_response(user: User) -> UserResponse:
         enabled=user.enabled,
         created_at=user.created_at,
         updated_at=user.updated_at,
-        last_login=user.last_login
+        last_login=user.last_login,
     )
 
 
@@ -40,28 +39,24 @@ async def list_users(
     role: Optional[str] = None,
     enabled: Optional[bool] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin"])),
 ):
     """
     List all users with pagination (admin only).
-    
+
     - **role**: Filter by role (admin, moderator, viewer)
     - **enabled**: Filter by enabled status
     """
     users, total = crud.get_users(
-        db,
-        page=page,
-        per_page=per_page,
-        role=role,
-        enabled=enabled
+        db, page=page, per_page=per_page, role=role, enabled=enabled
     )
-    
+
     return UserListResponse(
         items=[user_to_response(u) for u in users],
         total=total,
         page=page,
         per_page=per_page,
-        pages=math.ceil(total / per_page) if total > 0 else 1
+        pages=math.ceil(total / per_page) if total > 0 else 1,
     )
 
 
@@ -70,7 +65,7 @@ async def create_user(
     request: Request,
     user_data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin"])),
 ):
     """Create a new user (admin only)."""
     # Check for duplicate username
@@ -78,20 +73,26 @@ async def create_user(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "CONFLICT", "message": f"Username '{user_data.username}' already exists"}
+            detail={
+                "code": "CONFLICT",
+                "message": f"Username '{user_data.username}' already exists",
+            },
         )
-    
+
     # Check for duplicate email
     if user_data.email:
         existing_email = crud.get_user_by_email(db, user_data.email)
         if existing_email:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail={"code": "CONFLICT", "message": f"Email '{user_data.email}' already registered"}
+                detail={
+                    "code": "CONFLICT",
+                    "message": f"Email '{user_data.email}' already registered",
+                },
             )
-    
+
     user = crud.create_user(db, user_data)
-    
+
     # Audit log
     log_action(
         db=db,
@@ -99,10 +100,10 @@ async def create_user(
         action=AuditAction.USER_CREATE,
         resource_type="user",
         resource_id=user.id,
-        changes={"created": user_data.dict(exclude={"password"})},
-        ip_address=get_client_ip(request)
+        changes={"created": user_data.model_dump(exclude={"password"})},
+        ip_address=get_client_ip(request),
     )
-    
+
     return user_to_response(user)
 
 
@@ -110,16 +111,16 @@ async def create_user(
 async def get_user(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin"])),
 ):
     """Get a user by ID (admin only)."""
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "User not found"}
+            detail={"code": "NOT_FOUND", "message": "User not found"},
         )
-    
+
     return user_to_response(user)
 
 
@@ -129,31 +130,34 @@ async def update_user(
     user_id: str,
     user_data: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin"])),
 ):
     """Update a user (admin only)."""
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "User not found"}
+            detail={"code": "NOT_FOUND", "message": "User not found"},
         )
-    
+
     # Check for duplicate email if changing
     if user_data.email and user_data.email != user.email:
         existing_email = crud.get_user_by_email(db, user_data.email)
         if existing_email:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail={"code": "CONFLICT", "message": f"Email '{user_data.email}' already registered"}
+                detail={
+                    "code": "CONFLICT",
+                    "message": f"Email '{user_data.email}' already registered",
+                },
             )
-    
+
     # Compute changes for audit
-    update_data = user_data.dict(exclude_unset=True)
+    update_data = user_data.model_dump(exclude_unset=True)
     changes = compute_changes(user, update_data, list(update_data.keys()))
-    
+
     updated_user = crud.update_user(db, user_id, user_data)
-    
+
     # Audit log
     if changes:
         log_action(
@@ -163,9 +167,9 @@ async def update_user(
             resource_type="user",
             resource_id=user_id,
             changes=changes,
-            ip_address=get_client_ip(request)
+            ip_address=get_client_ip(request),
         )
-    
+
     return user_to_response(updated_user)
 
 
@@ -174,25 +178,28 @@ async def delete_user(
     request: Request,
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin"])),
 ):
     """Delete a user (admin only)."""
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "User not found"}
+            detail={"code": "NOT_FOUND", "message": "User not found"},
         )
-    
+
     # Prevent self-deletion
     if user_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_OPERATION", "message": "Cannot delete your own account"}
+            detail={
+                "code": "INVALID_OPERATION",
+                "message": "Cannot delete your own account",
+            },
         )
-    
+
     crud.delete_user(db, user_id)
-    
+
     # Audit log
     log_action(
         db=db,
@@ -201,9 +208,9 @@ async def delete_user(
         resource_type="user",
         resource_id=user_id,
         changes={"deleted": True, "username": user.username},
-        ip_address=get_client_ip(request)
+        ip_address=get_client_ip(request),
     )
-    
+
     return {"status": "deleted", "id": user_id}
 
 
@@ -212,19 +219,19 @@ async def enable_user(
     request: Request,
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin"])),
 ):
     """Enable a user account (admin only)."""
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "User not found"}
+            detail={"code": "NOT_FOUND", "message": "User not found"},
         )
-    
+
     user.enabled = True
     db.commit()
-    
+
     # Audit log
     log_action(
         db=db,
@@ -232,9 +239,9 @@ async def enable_user(
         action=AuditAction.USER_ENABLE,
         resource_type="user",
         resource_id=user_id,
-        ip_address=get_client_ip(request)
+        ip_address=get_client_ip(request),
     )
-    
+
     return {"status": "enabled", "id": user_id}
 
 
@@ -243,26 +250,29 @@ async def disable_user(
     request: Request,
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin"])),
 ):
     """Disable a user account (admin only)."""
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "User not found"}
+            detail={"code": "NOT_FOUND", "message": "User not found"},
         )
-    
+
     # Prevent self-disabling
     if user_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_OPERATION", "message": "Cannot disable your own account"}
+            detail={
+                "code": "INVALID_OPERATION",
+                "message": "Cannot disable your own account",
+            },
         )
-    
+
     user.enabled = False
     db.commit()
-    
+
     # Audit log
     log_action(
         db=db,
@@ -270,9 +280,9 @@ async def disable_user(
         action=AuditAction.USER_DISABLE,
         resource_type="user",
         resource_id=user_id,
-        ip_address=get_client_ip(request)
+        ip_address=get_client_ip(request),
     )
-    
+
     return {"status": "disabled", "id": user_id}
 
 
@@ -280,22 +290,22 @@ async def disable_user(
 async def change_user_role(
     request: Request,
     user_id: str,
-    role: str = Query(..., regex="^(admin|moderator|viewer)$"),
+    role: str = Query(..., pattern="^(admin|moderator|viewer)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin"])),
 ):
     """Change a user's role (admin only)."""
     user = crud.get_user(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "User not found"}
+            detail={"code": "NOT_FOUND", "message": "User not found"},
         )
-    
+
     old_role = user.role
     user.role = role
     db.commit()
-    
+
     # Audit log
     log_action(
         db=db,
@@ -304,7 +314,12 @@ async def change_user_role(
         resource_type="user",
         resource_id=user_id,
         changes={"role": {"old": old_role, "new": role}},
-        ip_address=get_client_ip(request)
+        ip_address=get_client_ip(request),
     )
-    
-    return {"status": "role_changed", "id": user_id, "old_role": old_role, "new_role": role}
+
+    return {
+        "status": "role_changed",
+        "id": user_id,
+        "old_role": old_role,
+        "new_role": role,
+    }

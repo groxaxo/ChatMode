@@ -2,22 +2,23 @@
 Advanced features routes: transcript downloads, MCP tool management, memory purging.
 """
 
-from fastapi import APIRouter, HTTPException, Query, Depends, Request
-from fastapi.responses import Response
-from typing import Optional, List
+import asyncio
 import csv
 import io
 import json
-import asyncio
+from typing import List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
+from sqlalchemy.orm import Session
+
+from ..audit import AuditAction, get_client_ip, log_action
+from ..auth import get_current_user, require_role
+from ..config import Settings
+from ..database import get_db
+from ..models import User
 from ..session import ChatSession
 from ..state_sync import sync_profiles_from_db
-from ..config import Settings
-from ..auth import get_current_user, require_role
-from ..models import User
-from ..database import get_db
-from ..audit import log_action, get_client_ip, AuditAction
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/v1", tags=["advanced"])
 

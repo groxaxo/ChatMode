@@ -5,39 +5,31 @@ Single entrypoint for the ChatMode API and admin interface.
 Combines all routes and serves the unified frontend.
 """
 
-import os
+import contextlib
 import logging
+import os
+
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
 
 from .config import load_settings
-from .session import ChatSession
 from .database import init_db
-from .logger_config import setup_logging, get_logger
+from .logger_config import get_logger, setup_logging
+from .session import ChatSession
 
 # Setup logging
 logger = get_logger(__name__)
 
-# Create FastAPI app
-app = FastAPI(
-    title="ChatMode - AI Multi-Agent Platform",
-    description="Manage and orchestrate AI agent conversations with multiple LLM providers",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
-
 # Load settings
 settings = load_settings()
-chat_session = ChatSession(settings)
 
 
-# Initialize database and providers on startup
-@app.on_event("startup")
-async def startup_event():
+# Create FastAPI app with lifespan
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
     # Setup logging with settings from config
     setup_logging(
         log_level=settings.log_level,
@@ -53,8 +45,8 @@ async def startup_event():
     # Initialize providers from environment variables
     try:
         from .database import SessionLocal
-        from .services import initialize_providers
         from .providers import load_providers_from_db
+        from .services import initialize_providers
 
         db = SessionLocal()
         try:
@@ -116,6 +108,19 @@ async def startup_event():
             db.close()
     except Exception as e:
         logger.error(f"⚠️  Provider initialization failed: {e}", exc_info=True)
+    yield
+
+
+app = FastAPI(
+    title="ChatMode - AI Multi-Agent Platform",
+    description="Manage and orchestrate AI agent conversations with multiple LLM providers",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
+)
+
+chat_session = ChatSession(settings)
 
 
 # Add CORS middleware
@@ -131,12 +136,13 @@ app.add_middleware(
 # Add request logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    import time
+
     from .logger_config import (
+        clear_correlation_id,
         get_correlation_id,
         set_correlation_id,
-        clear_correlation_id,
     )
-    import time
 
     # Set correlation ID for this request
     correlation_id = request.headers.get("X-Correlation-ID") or set_correlation_id()
@@ -165,9 +171,7 @@ async def log_requests(request: Request, call_next):
         log_level = (
             logging.DEBUG
             if status_code < 400
-            else logging.WARNING
-            if status_code < 500
-            else logging.ERROR
+            else logging.WARNING if status_code < 500 else logging.ERROR
         )
 
         logger.log(
@@ -211,7 +215,7 @@ try:
 
     # Set global session for advanced routes
     set_global_chat_session(chat_session)
-    
+
     # Set session for filter routes
     set_filter_session(chat_session)
 
@@ -247,7 +251,9 @@ if os.path.exists(frontend_dir):
 
 # Serve React build assets if available
 if os.path.exists(react_dist_dir):
-    app.mount(react_static_path, StaticFiles(directory=react_dist_dir), name="react_static")
+    app.mount(
+        react_static_path, StaticFiles(directory=react_dist_dir), name="react_static"
+    )
 
 # Mount audio directories
 os.makedirs(settings.tts_output_dir, exist_ok=True)
@@ -272,11 +278,18 @@ def react_app(request: Request):
             content = content.replace('"/assets/', f'"{react_static_path}/assets/')
             content = content.replace('"/vite.svg"', f'"{react_static_path}/vite.svg"')
             return HTMLResponse(content=content)
-    return HTMLResponse(content="<h1>React Frontend Not Built</h1><p>Run: cd frontend/react-app && npm run build</p>")
+    return HTMLResponse(
+        content="<h1>React Frontend Not Built</h1><p>Run: cd frontend/react-app && npm run build</p>"
+    )
 
 
 # Check if user prefers React frontend as default
-USE_REACT_FRONTEND = os.getenv("USE_REACT_FRONTEND", "false").lower() in ("true", "1", "yes", "on")
+USE_REACT_FRONTEND = os.getenv("USE_REACT_FRONTEND", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+    "on",
+)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -289,9 +302,11 @@ def admin_page(request: Request):
             with open(react_index, "r") as f:
                 content = f.read()
                 content = content.replace('"/assets/', f'"{react_static_path}/assets/')
-                content = content.replace('"/vite.svg"', f'"{react_static_path}/vite.svg"')
+                content = content.replace(
+                    '"/vite.svg"', f'"{react_static_path}/vite.svg"'
+                )
                 return HTMLResponse(content=content)
-    
+
     # Default: serve unified.html
     unified_path = os.path.join(frontend_dir, "unified.html")
     if os.path.exists(unified_path):

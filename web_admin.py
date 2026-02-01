@@ -1,4 +1,5 @@
 import os
+import contextlib
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,22 +23,25 @@ setup_logging(
 )
 logger = get_logger(__name__)
 
+chat_session = ChatSession(settings)
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    # Load content filter settings from first enabled agent
+    setup_content_filter()
+    yield
+
+
 app = FastAPI(
     title="ChatMode Admin",
     description="AI Multi-Agent Conversation Platform",
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
-chat_session = ChatSession(settings)
-
-
-# Initialize database on startup
-@app.on_event("startup")
-async def startup_event():
-    init_db()
-    # Load content filter settings from first enabled agent
-    setup_content_filter()
 
 
 def setup_content_filter():

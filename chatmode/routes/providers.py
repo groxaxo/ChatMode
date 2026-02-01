@@ -7,21 +7,22 @@ Provides endpoints for:
 - Listing available models
 """
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
+from ..auth import get_current_user
 from ..database import get_db
 from ..models import Provider, ProviderModel, User
-from ..auth import get_current_user
 from ..services.provider_sync import (
-    sync_provider_models,
-    sync_all_providers,
     create_provider_from_config,
     detect_provider_type,
-    get_all_available_models,
     fetch_models_from_provider,
+    get_all_available_models,
+    sync_all_providers,
+    sync_provider_models,
 )
 
 router = APIRouter(prefix="/providers", tags=["providers"])
@@ -68,8 +69,7 @@ class ProviderModelResponse(BaseModel):
     enabled: bool
     is_default: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProviderResponse(BaseModel):
@@ -86,8 +86,7 @@ class ProviderResponse(BaseModel):
     is_default: bool
     model_count: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProviderListResponse(BaseModel):
@@ -156,9 +155,9 @@ def _provider_to_response(provider: Provider, db: Session) -> ProviderResponse:
         provider_type=provider.provider_type,
         base_url=provider.base_url,
         auto_sync_enabled=provider.auto_sync_enabled,
-        last_sync_at=provider.last_sync_at.isoformat()
-        if provider.last_sync_at
-        else None,
+        last_sync_at=(
+            provider.last_sync_at.isoformat() if provider.last_sync_at else None
+        ),
         sync_status=provider.sync_status,
         sync_error=provider.sync_error,
         enabled=provider.enabled,

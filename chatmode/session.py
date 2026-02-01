@@ -14,11 +14,11 @@ import json
 import os
 import time
 import uuid
-from typing import List, Dict, Optional, Set, Tuple, Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-from .agent import ChatAgent
 from .admin import AdminAgent
-from .agent_state import AgentStateManager, AgentState, create_session_state_manager
+from .agent import ChatAgent
+from .agent_state import AgentState, AgentStateManager, create_session_state_manager
 from .config import Settings
 from .content_filter import ContentFilter, create_filter_from_permissions
 from .logger_config import get_logger, log_execution_time, log_operation
@@ -261,16 +261,20 @@ class ChatSession:
                 "sleep_seconds": agent.get_sleep_seconds(self.settings.sleep_seconds),
                 "memory": {
                     "count": memory_count,
-                    "top_k": agent.memory_top_k
-                    if agent.memory_top_k is not None
-                    else self.settings.memory_top_k,
+                    "top_k": (
+                        agent.memory_top_k
+                        if agent.memory_top_k is not None
+                        else self.settings.memory_top_k
+                    ),
                 },
                 "mcp": {
                     "configured": bool(agent.mcp_client),
                     "allowed_tools": agent.allowed_tools or [],
-                    "tools_cached": getattr(agent.mcp_client, "_tools_cache", None)
-                    if agent.mcp_client
-                    else None,
+                    "tools_cached": (
+                        getattr(agent.mcp_client, "_tools_cache", None)
+                        if agent.mcp_client
+                        else None
+                    ),
                 },
             }
 

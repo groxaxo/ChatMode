@@ -244,9 +244,14 @@ class TestAgentStateManager:
         await manager.register_agent("agent-1")
 
         # Create a mock task
-        mock_task = AsyncMock()
+        mock_task = Mock()
         mock_task.done.return_value = False
+        mock_task.cancel = Mock()
         await manager.set_task("agent-1", mock_task)
+
+        # Verify task was set
+        state = await manager.get_state("agent-1")
+        assert state.current_task is mock_task
 
         # Pause should cancel the task
         await manager.pause_agent("agent-1")

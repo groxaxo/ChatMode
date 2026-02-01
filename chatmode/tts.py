@@ -12,23 +12,23 @@ logger = logging.getLogger(__name__)
 def normalize_text_for_tts(text: str) -> str:
     """
     Normalize text for TTS input.
-    
+
     - Remove markdown formatting
     - Collapse multiple spaces
     - Handle common abbreviations
     """
     # Remove markdown bold/italic
-    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
-    text = re.sub(r'\*([^*]+)\*', r'\1', text)
-    text = re.sub(r'__([^_]+)__', r'\1', text)
-    text = re.sub(r'_([^_]+)_', r'\1', text)
-    
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)
+    text = re.sub(r"__([^_]+)__", r"\1", text)
+    text = re.sub(r"_([^_]+)_", r"\1", text)
+
     # Remove markdown links
-    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
-    
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+
     # Collapse multiple spaces/newlines
-    text = re.sub(r'\s+', ' ', text)
-    
+    text = re.sub(r"\s+", " ", text)
+
     return text.strip()
 
 
@@ -36,9 +36,10 @@ def normalize_text_for_tts(text: str) -> str:
 class TTSClient:
     """
     TTS client for OpenAI-compatible voice synthesis APIs.
-    
+
     Supports OpenAI's TTS API and compatible endpoints.
     """
+
     base_url: str
     api_key: str
     model: str
@@ -49,7 +50,9 @@ class TTSClient:
     def __post_init__(self):
         self._client = OpenAI(base_url=self.base_url, api_key=self.api_key)
         os.makedirs(self.output_dir, exist_ok=True)
-        logger.info(f"TTSClient initialized: {self.base_url}, model={self.model}, voice={self.voice}")
+        logger.info(
+            f"TTSClient initialized: {self.base_url}, model={self.model}, voice={self.voice}"
+        )
 
     def speak(
         self,
@@ -61,40 +64,42 @@ class TTSClient:
     ) -> Optional[str]:
         """
         Generate speech from text.
-        
+
         Args:
             text: Text to synthesize
             model: TTS model override
             voice: Voice override
             filename_prefix: Prefix for output filename
             format: Output format (mp3, wav, opus)
-            
+
         Returns:
             Path to generated audio file, or None on error
         """
         if not text:
             logger.warning("TTS called with empty text")
             return None
-        
+
         # Normalize text for better TTS output
         normalized_text = normalize_text_for_tts(text)
         if not normalized_text:
             return None
-        
+
         model = model or self.model
         voice = voice or self.voice
-        
+
         # Generate unique filename based on content hash
         filename = f"{filename_prefix}_{abs(hash(normalized_text))}.{format}"
         output_path = os.path.join(self.output_dir, filename)
-        
+
         # Check if already generated (cache)
         if os.path.exists(output_path):
             logger.debug(f"TTS cache hit: {filename}")
             return output_path
-        
+
         try:
-            logger.info(f"TTS request: model={model}, voice={voice}, text_len={len(normalized_text)}")
+            logger.info(
+                f"TTS request: model={model}, voice={voice}, text_len={len(normalized_text)}"
+            )
             response = self._client.audio.speech.create(
                 model=model,
                 voice=voice,
@@ -104,7 +109,7 @@ class TTSClient:
             response.stream_to_file(output_path)
             logger.info(f"TTS generated: {output_path}")
             return output_path
-            
+
         except Exception as e:
             logger.error(f"TTS generation failed: {e}")
             # Return None instead of raising - allows graceful degradation

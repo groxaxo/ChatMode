@@ -5,20 +5,20 @@ Automatically discovers and configures providers from environment variables
 and shell configuration files (.bashrc, .zshrc) on application startup.
 """
 
+import asyncio
 import os
 import re
-import asyncio
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+
 from sqlalchemy.orm import Session
 
 from ..models import Provider
 from ..services.provider_sync import (
     create_provider_from_config,
-    sync_provider_models,
     detect_provider_type,
+    sync_provider_models,
 )
-
 
 # Default provider configurations from environment
 DEFAULT_PROVIDERS = {

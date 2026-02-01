@@ -6,7 +6,8 @@ and agent profiles.
 """
 
 import os
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from crewai import LLM
 
 from .config import Settings
@@ -108,9 +109,11 @@ def get_default_llm(settings: Settings) -> LLM:
     """
     return LLM(
         model=settings.default_chat_model,
-        base_url=settings.openai_base_url
-        if settings.openai_base_url != "https://api.openai.com/v1"
-        else None,
+        base_url=(
+            settings.openai_base_url
+            if settings.openai_base_url != "https://api.openai.com/v1"
+            else None
+        ),
         api_key=settings.openai_api_key,
         temperature=settings.temperature,
         max_tokens=settings.max_output_tokens,

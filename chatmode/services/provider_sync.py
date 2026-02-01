@@ -5,16 +5,16 @@ This module provides functionality to sync models from various LLM providers
 including Ollama, OpenAI, DeepSeek, Fireworks AI, xAI, and any OpenAI-compatible API.
 """
 
-import os
-import json
 import asyncio
-from typing import List, Dict, Optional, Any
+import json
+import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import aiohttp
 from sqlalchemy.orm import Session
 
 from ..models import Provider, ProviderModel
-
 
 # Provider type detection from URL patterns
 PROVIDER_PATTERNS = {

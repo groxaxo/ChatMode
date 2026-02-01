@@ -1,9 +1,10 @@
-import json
 import asyncio
+import json
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .config import Settings
+from .logger_config import get_logger, log_execution_time
 from .memory import MemoryStore
 from .providers import (
     ChatProvider,
@@ -12,8 +13,7 @@ from .providers import (
     build_embedding_provider,
 )
 from .tts import TTSClient
-from .utils import clean_placeholders, trim_messages_to_context, approximate_tokens
-from .logger_config import get_logger, log_execution_time
+from .utils import approximate_tokens, clean_placeholders, trim_messages_to_context
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,6 @@ class ChatAgent:
         self.load_profile(config_file)
         self.history: List[Dict[str, str]] = []
         self.mcp_client = None  # MCP client for tool calling
-        self.allowed_tools: List[str] = []  # Allowed MCP tools
 
         if not self.api_url:
             self.api_url = (
@@ -76,18 +75,19 @@ class ChatAgent:
 
     def load_profile(self, config_file: str) -> None:
         import os
+
         with open(config_file, "r") as f:
             data = json.load(f)
         self.full_name = data.get("name", self.name)
         self.model = data.get("model")
         self.api = data.get("api", "ollama")
         self.api_url = data.get("url")
-        
+
         # Support api_key directly or from environment variable via api_key_env
         self.api_key = data.get("api_key")
         if not self.api_key and data.get("api_key_env"):
             self.api_key = os.getenv(data.get("api_key_env"))
-        
+
         self.params = data.get("params", {})
 
         # Per-agent overrides
@@ -207,9 +207,11 @@ class ChatAgent:
             {"role": "system", "content": self.system_prompt},
             {
                 "role": "system",
-                "content": f"Long-term memory snippets:\n{memory_text}"
-                if memory_text
-                else "Long-term memory snippets: (none)",
+                "content": (
+                    f"Long-term memory snippets:\n{memory_text}"
+                    if memory_text
+                    else "Long-term memory snippets: (none)"
+                ),
             },
             {"role": "user", "content": f"Topic:\n{topic}"},
             {"role": "user", "content": f"Conversation so far:\n{history_text}"},

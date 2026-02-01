@@ -2,11 +2,11 @@
 Pydantic schemas for API request/response validation.
 """
 
-from pydantic import BaseModel, Field, EmailStr, validator
-from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, validator
 
 # ============================================================================
 # Enums
@@ -72,8 +72,7 @@ class UserResponse(UserBase):
     created_at: datetime
     last_login: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserListResponse(BaseModel):
@@ -219,8 +218,7 @@ class AgentResponse(AgentBase):
     memory_settings: Optional[MemorySettingsBase] = None
     permissions: Optional[PermissionsBase] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AgentListResponse(BaseModel):
@@ -264,8 +262,7 @@ class MessageResponse(MessageBase):
     audio_mime: Optional[str] = None
     audio_cached: Optional[bool] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MessageListResponse(BaseModel):
@@ -293,8 +290,7 @@ class ConversationResponse(ConversationBase):
     audio_count: int = 0
     participants: List[str] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ConversationDetailResponse(ConversationResponse):
@@ -335,8 +331,7 @@ class VoiceAssetListResponse(BaseModel):
     per_page: int
     pages: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -355,8 +350,7 @@ class AuditLogEntry(BaseModel):
     changes: Optional[Dict[str, Any]]
     ip_address: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Single audit log is just AuditLogEntry

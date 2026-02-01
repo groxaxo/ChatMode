@@ -1,41 +1,43 @@
 # Core Framework
-fastapi>=0.110.0
-uvicorn[standard]>=0.27.0
+fastapi>=0.128.0
+uvicorn[standard]>=0.40.0
 jinja2>=3.1.3
-python-multipart>=0.0.9
-aiofiles>=23.0.0
+python-multipart>=0.0.22
+aiofiles>=24.1.0
 
 # LLM & AI
-openai>=1.40.0
-chromadb>=1.0.0
+openai>=1.83.0,<2.0.0  # v1.x API for compatibility
+chromadb>=1.1.1
 
 # CrewAI Framework
-crewai>=0.121.0
-crewai-tools>=0.36.0
+crewai>=1.9.3
+crewai-tools>=1.9.3
 
 # MCP Integration
-mcp>=1.0.0
+mcp>=1.23.3
 
 # HTTP & API
-requests>=2.31.0
-httpx>=0.24.0
+requests>=2.32.5
+httpx>=0.28.1
+tenacity>=9.1.2
 
 # Configuration
-python-dotenv>=1.0.1
-pydantic>=2.0.0
+python-dotenv>=1.1.1
+pydantic>=2.11.10
 
 # Database & Auth
-sqlalchemy>=2.0.0
-python-jose[cryptography]>=3.3.0
+sqlalchemy>=2.0.46
+python-jose[cryptography]>=3.5.0
 passlib[bcrypt]>=1.7.4
-bcrypt>=4.0.0,<5.0.0
-email-validator>=2.0.0
+bcrypt>=4.0.1,<5.0.0
+email-validator>=2.3.0
 
 # Frontend
-gradio>=4.0.0
+gradio>=6.5.1
 
 # Development & Testing
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-black>=23.0.0
-ruff>=0.0.280
+pytest>=9.0.2
+pytest-asyncio>=1.3.0
+pytest-cov>=7.0.0
+black>=26.1.0
+ruff>=0.14.14

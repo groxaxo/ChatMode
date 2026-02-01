@@ -10,6 +10,13 @@ import uuid
 import pytest
 from unittest.mock import Mock
 
+# Configure asyncio plugin
+pytest_plugins = ("pytest_asyncio",)
+
+
+def pytest_configure(config):
+    config.option.asyncio_mode = "auto"
+
 
 @pytest.fixture
 def unique_collection_name():
@@ -21,7 +28,7 @@ def unique_collection_name():
 def test_chroma_dir(tmp_path):
     """
     Provide a temporary directory for ChromaDB testing.
-    
+
     This ensures tests are isolated and can run in parallel without conflicts.
     """
     chroma_dir = tmp_path / "chroma_test"
@@ -52,14 +59,14 @@ def mock_embedding_provider():
 def set_test_env_vars(test_chroma_dir, test_tts_dir, monkeypatch):
     """
     Automatically set environment variables for tests.
-    
+
     This fixture runs automatically for all tests (autouse=True).
     Uses monkeypatch to safely modify environment variables.
     """
     # Set test environment variables using monkeypatch
-    monkeypatch.setenv('CHROMA_DIR', test_chroma_dir)
-    monkeypatch.setenv('TTS_OUTPUT_DIR', test_tts_dir)
-    monkeypatch.setenv('OPENAI_API_KEY', 'test-key-fixture')
-    
+    monkeypatch.setenv("CHROMA_DIR", test_chroma_dir)
+    monkeypatch.setenv("TTS_OUTPUT_DIR", test_tts_dir)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key-fixture")
+
     # monkeypatch automatically restores original environment after test
     yield

@@ -6,10 +6,10 @@ Provides per-agent state tracking and control mechanisms.
 
 import asyncio
 import logging
-from enum import Enum, auto
-from typing import Dict, Optional, Set
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum, auto
+from typing import Dict, Optional, Set
 
 logger = logging.getLogger(__name__)
 

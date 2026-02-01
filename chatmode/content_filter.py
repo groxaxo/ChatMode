@@ -6,8 +6,8 @@ inappropriate content based on configurable word lists and rules.
 """
 
 import re
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass

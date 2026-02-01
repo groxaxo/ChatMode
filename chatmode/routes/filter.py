@@ -4,9 +4,10 @@ Content Filter Routes
 Routes for managing the global content filter.
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 
 router = APIRouter(prefix="/api/v1/filter", tags=["filter"])
 
@@ -22,11 +23,13 @@ def set_filter_session(session):
 
 class FilterToggleRequest(BaseModel):
     """Request model for toggling filter."""
+
     enabled: bool
 
 
 class FilterStatusResponse(BaseModel):
     """Response model for filter status."""
+
     enabled: bool
     action: Optional[str] = None
     blocked_words_count: int = 0
@@ -38,7 +41,7 @@ async def get_filter_status():
     """Get current content filter status."""
     if _chat_session is None:
         raise HTTPException(status_code=500, detail="Session not initialized")
-    
+
     if _chat_session.content_filter:
         return FilterStatusResponse(
             enabled=_chat_session.content_filter.enabled,
@@ -46,10 +49,7 @@ async def get_filter_status():
             blocked_words_count=len(_chat_session.content_filter.blocked_words),
         )
     else:
-        return FilterStatusResponse(
-            enabled=False,
-            message="No filter configured"
-        )
+        return FilterStatusResponse(enabled=False, message="No filter configured")
 
 
 @router.post("/toggle")
@@ -57,7 +57,7 @@ async def toggle_filter(request: FilterToggleRequest):
     """Toggle content filter on/off globally."""
     if _chat_session is None:
         raise HTTPException(status_code=500, detail="Session not initialized")
-    
+
     if _chat_session.content_filter:
         _chat_session.content_filter.enabled = request.enabled
         return {
@@ -74,11 +74,11 @@ async def reload_filter():
     """Reload content filter settings from database."""
     if _chat_session is None:
         raise HTTPException(status_code=500, detail="Session not initialized")
-    
+
     try:
-        from ..database import get_db
-        from ..content_filter import ContentFilter, create_filter_from_permissions
         from .. import crud
+        from ..content_filter import ContentFilter, create_filter_from_permissions
+        from ..database import get_db
 
         db = next(get_db())
         try:

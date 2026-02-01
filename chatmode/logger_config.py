@@ -419,7 +419,9 @@ def log_request_response(
     if error:
         logger.error(f"❌ HTTP {method} {url} failed: {error}", extra=log_data)
     elif status_code and status_code >= 400:
-        logger.warning(f"⚠️  HTTP {method} {url} returned {status_code}", extra=log_data)
+        logger.warning(
+            f"⚠️  HTTP {method} {url} returned {status_code}", extra=log_data
+        )
     else:
         duration_str = f" in {duration_ms:.1f}ms" if duration_ms else ""
         logger.debug(f"🌐 HTTP {method} {url}{duration_str}", extra=log_data)

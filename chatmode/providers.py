@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
-from typing import List, Dict, Optional
 from functools import lru_cache
+from typing import Dict, List, Optional
 
 import requests
 from openai import OpenAI
