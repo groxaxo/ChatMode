@@ -367,11 +367,19 @@ async def resume_session():
 def send_message(content: str = Form(...), sender: str = Form("Admin")):
     """Inject a message into the conversation."""
     content = content.strip()
+    sender = sender.strip() if sender else "Admin"
+    
     if not content:
         return JSONResponse(
             {"status": "failed", "reason": "Message content is required"},
             status_code=400
         )
+    if not sender:
+        return JSONResponse(
+            {"status": "failed", "reason": "Sender is required"},
+            status_code=400
+        )
+    
     chat_session.inject_message(sender, content)
     return JSONResponse({"status": "sent", "sender": sender})
 

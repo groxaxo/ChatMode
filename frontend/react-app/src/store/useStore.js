@@ -36,7 +36,8 @@ const postForm = async (url, data = {}) => {
     // Try to parse error as JSON
     let errorMessage = `Request failed: ${res.status}`;
     
-    // Clone response to allow multiple consumption attempts
+    // Clone response because body can only be consumed once 
+    // (attempting both .json() and .text() on same response would fail)
     const clonedRes = res.clone();
     
     try {
