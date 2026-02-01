@@ -293,14 +293,6 @@ class AgentStateManager:
         async with self._lock:
             return {name: info.to_dict() for name, info in self._states.items()}
 
-    def get_active_agents_sync(self) -> Set[str]:
-        """Synchronous version for use in non-async contexts (use with caution)."""
-        return {
-            name
-            for name, info in self._states.items()
-            if info.state == AgentState.ACTIVE
-        }
-
     async def reset_all(self) -> None:
         """Reset all agents to ACTIVE state (useful for new sessions)."""
         async with self._lock:

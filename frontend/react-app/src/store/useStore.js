@@ -31,10 +31,25 @@ const postForm = async (url, data = {}) => {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
+  
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
+    // Try to parse error as JSON
+    try {
+      const error = await res.json();
+      throw new Error(error.reason || error.detail?.message || `Request failed: ${res.status}`);
+    } catch (e) {
+      // If JSON parse fails, use status text
+      const text = await res.text();
+      throw new Error(text || `Request failed: ${res.status}`);
+    }
   }
+  
+  // Parse successful response as JSON
+  const contentType = res.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return await res.json();
+  }
+  
   return res;
 };
 
