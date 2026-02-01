@@ -319,31 +319,45 @@ async def start_session(topic: str = Form("")):
     """Start a new chat session."""
     topic = topic.strip()
     if not topic:
-        return RedirectResponse(url="/", status_code=303)
+        return JSONResponse(
+            {"status": "failed", "reason": "Topic is required"},
+            status_code=400
+        )
     if await chat_session.start(topic):
-        return RedirectResponse(url="/", status_code=303)
-    return RedirectResponse(url="/", status_code=303)
+        return JSONResponse({
+            "status": "started",
+            "session_id": chat_session.session_id,
+            "topic": chat_session.topic
+        })
+    return JSONResponse(
+        {"status": "failed", "reason": "Session already running"},
+        status_code=400
+    )
 
 
 @app.post("/stop")
 async def stop_session():
     """Stop the current chat session."""
     await chat_session.stop()
-    return RedirectResponse(url="/", status_code=303)
+    return JSONResponse({"status": "stopped"})
 
 
 @app.post("/memory/clear")
 def clear_memory():
     """Clear session memory."""
     chat_session.clear_memory()
-    return {"status": "memory_cleared"}
+    return JSONResponse({"status": "memory_cleared"})
 
 
 @app.post("/resume")
 async def resume_session():
     """Resume a paused session."""
     if await chat_session.resume():
-        return {"status": "resumed"}
+        return JSONResponse({
+            "status": "resumed",
+            "session_id": chat_session.session_id,
+            "topic": chat_session.topic
+        })
     return JSONResponse(
         {"status": "failed", "reason": "Already running or no topic"}, status_code=400
     )
@@ -352,8 +366,13 @@ async def resume_session():
 @app.post("/messages")
 def send_message(content: str = Form(...), sender: str = Form("Admin")):
     """Inject a message into the conversation."""
+    if not content.strip():
+        return JSONResponse(
+            {"status": "failed", "reason": "Message content is required"},
+            status_code=400
+        )
     chat_session.inject_message(sender, content)
-    return {"status": "sent"}
+    return JSONResponse({"status": "sent", "sender": sender})
 
 
 @app.get("/status")
