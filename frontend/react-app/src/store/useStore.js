@@ -35,13 +35,18 @@ const postForm = async (url, data = {}) => {
   if (!res.ok) {
     // Try to parse error as JSON
     let errorMessage = `Request failed: ${res.status}`;
+    
+    // Clone response to allow multiple consumption attempts
+    const clonedRes = res.clone();
+    
     try {
       const error = await res.json();
-      errorMessage = error.reason || error.detail?.message || errorMessage;
+      // Backend returns errors with 'reason' field
+      errorMessage = error.reason || errorMessage;
     } catch (jsonError) {
-      // If JSON parse fails, try to get text
+      // If JSON parse fails, try to get text from cloned response
       try {
-        const text = await res.text();
+        const text = await clonedRes.text();
         if (text) errorMessage = text;
       } catch (textError) {
         // Use default error message
