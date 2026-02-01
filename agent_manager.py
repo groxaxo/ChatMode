@@ -19,7 +19,7 @@ from rich.live import Live
 from rich.spinner import Spinner
 from rich.columns import Columns
 
-from config import load_settings
+from chatmode.config import load_settings
 from session_crewai import ChatSession
 
 
@@ -27,33 +27,37 @@ console = Console()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ChatMode Agent Manager CLI", add_help=False)
-    parser.add_argument('--help', action='store_true', help='Show help message')
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    parser = argparse.ArgumentParser(
+        description="ChatMode Agent Manager CLI", add_help=False
+    )
+    parser.add_argument("--help", action="store_true", help="Show help message")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Start command
-    start_parser = subparsers.add_parser('start', help='Start a new session')
-    start_parser.add_argument('topic', help='The debate topic')
+    start_parser = subparsers.add_parser("start", help="Start a new session")
+    start_parser.add_argument("topic", help="The debate topic")
 
     # Stop command
-    subparsers.add_parser('stop', help='Stop the current session')
+    subparsers.add_parser("stop", help="Stop the current session")
 
     # Resume command
-    subparsers.add_parser('resume', help='Resume a paused session')
+    subparsers.add_parser("resume", help="Resume a paused session")
 
     # Status command
-    subparsers.add_parser('status', help='Show current session status')
+    subparsers.add_parser("status", help="Show current session status")
 
     # List agents command
-    subparsers.add_parser('list-agents', help='List available agents')
+    subparsers.add_parser("list-agents", help="List available agents")
 
     # Inject message command
-    inject_parser = subparsers.add_parser('inject', help='Inject a message into the session')
-    inject_parser.add_argument('sender', help='Sender name')
-    inject_parser.add_argument('message', help='Message content')
+    inject_parser = subparsers.add_parser(
+        "inject", help="Inject a message into the session"
+    )
+    inject_parser.add_argument("sender", help="Sender name")
+    inject_parser.add_argument("message", help="Message content")
 
     # Clear memory command
-    subparsers.add_parser('clear-memory', help='Clear conversation memory')
+    subparsers.add_parser("clear-memory", help="Clear conversation memory")
 
     args = parser.parse_args()
 
@@ -64,19 +68,19 @@ def main():
     settings = load_settings()
     session = ChatSession(settings)
 
-    if args.command == 'start':
+    if args.command == "start":
         handle_start(session, args.topic)
-    elif args.command == 'stop':
+    elif args.command == "stop":
         handle_stop(session)
-    elif args.command == 'resume':
+    elif args.command == "resume":
         handle_resume(session)
-    elif args.command == 'status':
+    elif args.command == "status":
         handle_status(session)
-    elif args.command == 'list-agents':
+    elif args.command == "list-agents":
         handle_list_agents()
-    elif args.command == 'inject':
+    elif args.command == "inject":
         handle_inject(session, args.sender, args.message)
-    elif args.command == 'clear-memory':
+    elif args.command == "clear-memory":
         handle_clear_memory(session)
 
 
@@ -106,15 +110,25 @@ A beautiful CLI tool for managing multi-agent chat sessions.
 
 [dim]Use --help for more details.[/dim]
 """
-    console.print(Panel(help_text, title="[bold magenta]ChatMode CLI[/bold magenta]", border_style="blue"))
+    console.print(
+        Panel(
+            help_text,
+            title="[bold magenta]ChatMode CLI[/bold magenta]",
+            border_style="blue",
+        )
+    )
 
 
 def handle_start(session, topic):
-    with console.status(f"[bold green]Starting session with topic: {topic}[/bold green]", spinner="dots"):
+    with console.status(
+        f"[bold green]Starting session with topic: {topic}[/bold green]", spinner="dots"
+    ):
         if session.start(topic):
             console.print(f"[green]✓ Session started successfully![/green]")
             console.print(f"[dim]Topic: {topic}[/dim]")
-            console.print("[yellow]Agents are now discussing... Press Ctrl+C to stop.[/yellow]")
+            console.print(
+                "[yellow]Agents are now discussing... Press Ctrl+C to stop.[/yellow]"
+            )
             try:
                 with Live(console=console, refresh_per_second=1) as live:
                     while session.is_running():
@@ -125,7 +139,9 @@ def handle_start(session, topic):
                 session.stop()
                 console.print("[red]Session stopped by user.[/red]")
         else:
-            console.print("[red]✗ Failed to start session. It might already be running.[/red]")
+            console.print(
+                "[red]✗ Failed to start session. It might already be running.[/red]"
+            )
 
 
 def handle_stop(session):
@@ -137,7 +153,9 @@ def handle_resume(session):
     with console.status("[bold green]Resuming session...[/bold green]", spinner="dots"):
         if session.resume():
             console.print("[green]✓ Session resumed successfully![/green]")
-            console.print("[yellow]Agents are now discussing... Press Ctrl+C to stop.[/yellow]")
+            console.print(
+                "[yellow]Agents are now discussing... Press Ctrl+C to stop.[/yellow]"
+            )
             try:
                 with Live(console=console, refresh_per_second=1) as live:
                     while session.is_running():
@@ -148,7 +166,9 @@ def handle_resume(session):
                 session.stop()
                 console.print("[red]Session stopped by user.[/red]")
         else:
-            console.print("[red]✗ Failed to resume session. No topic set or already running.[/red]")
+            console.print(
+                "[red]✗ Failed to resume session. No topic set or already running.[/red]"
+            )
 
 
 def handle_status(session):
@@ -172,15 +192,22 @@ def create_status_table(session):
     messages_table.add_column("Message", style="white")
 
     for msg in session.last_messages[-5:]:
-        messages_table.add_row(msg['sender'], msg['content'][:80] + "..." if len(msg['content']) > 80 else msg['content'])
+        messages_table.add_row(
+            msg["sender"],
+            msg["content"][:80] + "..." if len(msg["content"]) > 80 else msg["content"],
+        )
 
-    table.add_row("Recent Messages", messages_table if session.last_messages else "[dim]None[/dim]")
+    table.add_row(
+        "Recent Messages",
+        messages_table if session.last_messages else "[dim]None[/dim]",
+    )
 
     return table
 
 
 def handle_list_agents():
     import json
+
     config_path = "agent_config.json"
     try:
         with open(config_path, "r") as f:
@@ -198,7 +225,7 @@ def handle_list_agents():
             table.add_row(
                 profile.get("name", agent.get("name")),
                 profile.get("model", "default"),
-                profile.get("api", "openai")
+                profile.get("api", "openai"),
             )
 
         console.print(table)
@@ -208,7 +235,9 @@ def handle_list_agents():
 
 def handle_inject(session, sender, message):
     session.inject_message(sender, message)
-    console.print(f"[green]✓ Message injected:[/green] [bold]{sender}[/bold]: {message}")
+    console.print(
+        f"[green]✓ Message injected:[/green] [bold]{sender}[/bold]: {message}"
+    )
 
 
 def handle_clear_memory(session):

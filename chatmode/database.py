@@ -22,7 +22,7 @@ if DATABASE_URL.startswith("sqlite"):
         poolclass=StaticPool,
         echo=os.getenv("SQL_ECHO", "").lower() == "true",
     )
-    
+
     # Enable foreign keys for SQLite
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -46,7 +46,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def get_db():
     """
     Dependency for FastAPI to get database session.
-    
+
     Usage:
         @app.get("/items")
         def get_items(db: Session = Depends(get_db)):
@@ -63,7 +63,7 @@ def get_db():
 def get_db_context():
     """
     Context manager for database session.
-    
+
     Usage:
         with get_db_context() as db:
             db.query(User).all()
@@ -83,7 +83,7 @@ def init_db():
     """Initialize database tables."""
     # Ensure data directory exists
     os.makedirs("data", exist_ok=True)
-    
+
     # Create all tables
     create_all_tables(engine)
     _apply_sqlite_migrations()
@@ -100,6 +100,32 @@ def _apply_sqlite_migrations() -> None:
         columns = {row[1] for row in result.fetchall()}
         if "sleep_seconds" not in columns:
             conn.execute(text("ALTER TABLE agents ADD COLUMN sleep_seconds FLOAT"))
+            conn.commit()
+
+        # Migrate agent_permissions table
+        result = conn.execute(text("PRAGMA table_info(agent_permissions)"))
+        columns = {row[1] for row in result.fetchall()}
+        if "filter_enabled" not in columns:
+            conn.execute(
+                text("ALTER TABLE agent_permissions ADD COLUMN filter_enabled BOOLEAN")
+            )
+            conn.commit()
+        if "blocked_words" not in columns:
+            conn.execute(
+                text("ALTER TABLE agent_permissions ADD COLUMN blocked_words JSON")
+            )
+            conn.commit()
+        if "filter_action" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE agent_permissions ADD COLUMN filter_action VARCHAR(20)"
+                )
+            )
+            conn.commit()
+        if "filter_message" not in columns:
+            conn.execute(
+                text("ALTER TABLE agent_permissions ADD COLUMN filter_message TEXT")
+            )
             conn.commit()
 
 

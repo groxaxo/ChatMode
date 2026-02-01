@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import load_settings
+from chatmode.config import load_settings
 from session_crewai import ChatSession
 from chatmode.logger_config import setup_logging, get_logger
 

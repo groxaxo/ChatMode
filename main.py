@@ -4,7 +4,7 @@ import time
 
 from agent import ChatAgent
 from admin import AdminAgent
-from config import load_settings
+from chatmode.config import load_settings
 
 
 def load_config(path):

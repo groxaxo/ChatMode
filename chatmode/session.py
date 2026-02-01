@@ -126,6 +126,9 @@ class ChatSession:
     async def start(self, topic: str) -> bool:
         """Start a new chat session."""
         async with self._lock:
+            logger.debug(
+                f"Session start called, running={self._running}, topic='{topic}'"
+            )
             if self._running:
                 logger.warning("⚠️  Session already running, cannot start new session")
                 return False
@@ -138,6 +141,7 @@ class ChatSession:
             self.history = []
             self.last_messages = []
             self.agents = load_agents(self.settings)
+            logger.debug(f"Loaded {len(self.agents)} agents")
 
             if len(self.agents) < 1:
                 logger.error("❌ No agents configured - cannot start session")
@@ -594,7 +598,9 @@ class ChatSession:
 
             # Sleep after each agent turn using per-agent override
             if self._running:
-                await asyncio.sleep(agent.get_sleep_seconds(self.settings.sleep_seconds))
+                await asyncio.sleep(
+                    agent.get_sleep_seconds(self.settings.sleep_seconds)
+                )
 
     async def _maybe_summarize(self) -> None:
         """Summarize old messages if history exceeds limit."""

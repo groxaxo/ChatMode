@@ -9,7 +9,7 @@ import json
 import os
 import time
 
-from config import load_settings
+from chatmode.config import load_settings
 from crewai_agent import load_agents_from_config
 from debate_crew import DebateCrew, TopicGenerator
 
