@@ -423,7 +423,7 @@ async def pause_agent(agent_name: str, reason: str = Form(None)):
     """Pause a specific agent."""
     success = await chat_session.pause_agent(agent_name, reason)
     if success:
-        return {"status": "paused", "agent": agent_name, "reason": reason}
+        return JSONResponse({"status": "paused", "agent": agent_name, "reason": reason})
     return JSONResponse(
         {
             "status": "failed",
@@ -439,7 +439,7 @@ async def resume_agent(agent_name: str):
     """Resume a paused agent."""
     success = await chat_session.resume_agent(agent_name)
     if success:
-        return {"status": "resumed", "agent": agent_name}
+        return JSONResponse({"status": "resumed", "agent": agent_name})
     return JSONResponse(
         {
             "status": "failed",
@@ -455,7 +455,7 @@ async def stop_agent(agent_name: str, reason: str = Form(None)):
     """Stop a specific agent."""
     success = await chat_session.stop_agent(agent_name, reason)
     if success:
-        return {"status": "stopped", "agent": agent_name, "reason": reason}
+        return JSONResponse({"status": "stopped", "agent": agent_name, "reason": reason})
     return JSONResponse(
         {
             "status": "failed",
@@ -471,7 +471,7 @@ async def finish_agent(agent_name: str, reason: str = Form(None)):
     """Mark an agent as finished."""
     success = await chat_session.finish_agent(agent_name, reason)
     if success:
-        return {"status": "finished", "agent": agent_name, "reason": reason}
+        return JSONResponse({"status": "finished", "agent": agent_name, "reason": reason})
     return JSONResponse(
         {
             "status": "failed",
@@ -487,7 +487,7 @@ async def restart_agent(agent_name: str):
     """Restart a stopped or finished agent."""
     success = await chat_session.restart_agent(agent_name)
     if success:
-        return {"status": "restarted", "agent": agent_name}
+        return JSONResponse({"status": "restarted", "agent": agent_name})
     return JSONResponse(
         {
             "status": "failed",
@@ -502,7 +502,7 @@ async def restart_agent(agent_name: str):
 async def get_agent_states():
     """Get the current state of all agents."""
     states = await chat_session.get_agent_states()
-    return {"agent_states": states}
+    return JSONResponse({"agent_states": states})
 
 
 # ============================================================================
