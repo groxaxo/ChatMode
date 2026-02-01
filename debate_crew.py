@@ -243,7 +243,7 @@ class TopicGenerator:
         self.settings = settings
 
         # Create a topic generator agent
-        from llm_config import get_default_llm
+        from chatmode.llm_config import get_default_llm
 
         self.agent = Agent(
             role="Debate Moderator",
