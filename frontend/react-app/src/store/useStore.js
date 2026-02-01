@@ -31,10 +31,37 @@ const postForm = async (url, data = {}) => {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
+  
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
+    // Try to parse error as JSON
+    let errorMessage = `Request failed: ${res.status}`;
+    
+    // Clone response because body can only be consumed once 
+    // (attempting both .json() and .text() on same response would fail)
+    const clonedRes = res.clone();
+    
+    try {
+      const error = await res.json();
+      // Backend returns errors with 'reason' field
+      errorMessage = error.reason || errorMessage;
+    } catch (jsonError) {
+      // If JSON parse fails, try to get text from cloned response
+      try {
+        const text = await clonedRes.text();
+        if (text) errorMessage = text;
+      } catch (textError) {
+        // Use default error message
+      }
+    }
+    throw new Error(errorMessage);
   }
+  
+  // Parse successful response as JSON
+  const contentType = res.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return await res.json();
+  }
+  
   return res;
 };
 

@@ -319,31 +319,45 @@ async def start_session(topic: str = Form("")):
     """Start a new chat session."""
     topic = topic.strip()
     if not topic:
-        return RedirectResponse(url="/", status_code=303)
+        return JSONResponse(
+            {"status": "failed", "reason": "Topic is required"},
+            status_code=400
+        )
     if await chat_session.start(topic):
-        return RedirectResponse(url="/", status_code=303)
-    return RedirectResponse(url="/", status_code=303)
+        return JSONResponse({
+            "status": "started",
+            "session_id": chat_session.session_id,
+            "topic": chat_session.topic
+        })
+    return JSONResponse(
+        {"status": "failed", "reason": "Session already running"},
+        status_code=400
+    )
 
 
 @app.post("/stop")
 async def stop_session():
     """Stop the current chat session."""
     await chat_session.stop()
-    return RedirectResponse(url="/", status_code=303)
+    return JSONResponse({"status": "stopped"})
 
 
 @app.post("/memory/clear")
 def clear_memory():
     """Clear session memory."""
     chat_session.clear_memory()
-    return {"status": "memory_cleared"}
+    return JSONResponse({"status": "memory_cleared"})
 
 
 @app.post("/resume")
 async def resume_session():
     """Resume a paused session."""
     if await chat_session.resume():
-        return {"status": "resumed"}
+        return JSONResponse({
+            "status": "resumed",
+            "session_id": chat_session.session_id,
+            "topic": chat_session.topic
+        })
     return JSONResponse(
         {"status": "failed", "reason": "Already running or no topic"}, status_code=400
     )
@@ -352,8 +366,21 @@ async def resume_session():
 @app.post("/messages")
 def send_message(content: str = Form(...), sender: str = Form("Admin")):
     """Inject a message into the conversation."""
+    content = content.strip()
+    sender = sender.strip()
+    
+    if not content:
+        return JSONResponse(
+            {"status": "failed", "reason": "Message content is required"},
+            status_code=400
+        )
+    
+    # If sender is empty after stripping, use default
+    if not sender:
+        sender = "Admin"
+    
     chat_session.inject_message(sender, content)
-    return {"status": "sent"}
+    return JSONResponse({"status": "sent", "sender": sender})
 
 
 @app.get("/status")
@@ -404,7 +431,7 @@ async def pause_agent(agent_name: str, reason: str = Form(None)):
     """Pause a specific agent."""
     success = await chat_session.pause_agent(agent_name, reason)
     if success:
-        return {"status": "paused", "agent": agent_name, "reason": reason}
+        return JSONResponse({"status": "paused", "agent": agent_name, "reason": reason})
     return JSONResponse(
         {
             "status": "failed",
@@ -420,7 +447,7 @@ async def resume_agent(agent_name: str):
     """Resume a paused agent."""
     success = await chat_session.resume_agent(agent_name)
     if success:
-        return {"status": "resumed", "agent": agent_name}
+        return JSONResponse({"status": "resumed", "agent": agent_name})
     return JSONResponse(
         {
             "status": "failed",
@@ -436,7 +463,7 @@ async def stop_agent(agent_name: str, reason: str = Form(None)):
     """Stop a specific agent."""
     success = await chat_session.stop_agent(agent_name, reason)
     if success:
-        return {"status": "stopped", "agent": agent_name, "reason": reason}
+        return JSONResponse({"status": "stopped", "agent": agent_name, "reason": reason})
     return JSONResponse(
         {
             "status": "failed",
@@ -452,7 +479,7 @@ async def finish_agent(agent_name: str, reason: str = Form(None)):
     """Mark an agent as finished."""
     success = await chat_session.finish_agent(agent_name, reason)
     if success:
-        return {"status": "finished", "agent": agent_name, "reason": reason}
+        return JSONResponse({"status": "finished", "agent": agent_name, "reason": reason})
     return JSONResponse(
         {
             "status": "failed",
@@ -468,7 +495,7 @@ async def restart_agent(agent_name: str):
     """Restart a stopped or finished agent."""
     success = await chat_session.restart_agent(agent_name)
     if success:
-        return {"status": "restarted", "agent": agent_name}
+        return JSONResponse({"status": "restarted", "agent": agent_name})
     return JSONResponse(
         {
             "status": "failed",
@@ -483,7 +510,7 @@ async def restart_agent(agent_name: str):
 async def get_agent_states():
     """Get the current state of all agents."""
     states = await chat_session.get_agent_states()
-    return {"agent_states": states}
+    return JSONResponse({"agent_states": states})
 
 
 # ============================================================================
