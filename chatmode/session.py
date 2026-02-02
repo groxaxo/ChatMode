@@ -446,6 +446,7 @@ class ChatSession:
             return False
 
         # Set current task for cancellation support
+        logger.info(f"Running agent turn for {agent.name}")
         task = asyncio.create_task(self._generate_agent_response(agent))
         await self.state_manager.set_task(agent_name, task)
 
@@ -511,6 +512,7 @@ class ChatSession:
 
         try:
             while self._running:
+                logger.info(f"Round {round_num}")
                 # Get active agents
                 active_agents = await self.get_active_agents()
 
@@ -525,6 +527,8 @@ class ChatSession:
                     await self._run_multi_agent_mode(active_agents)
 
                 round_num += 1
+                logger.info(f"End of round {round_num - 1}, running: {self._running}")
+            logger.info("Exited _run_loop while loop")
 
         except asyncio.CancelledError:
             logger.info("Session loop cancelled")
@@ -533,7 +537,6 @@ class ChatSession:
             logger.error(f"Error in session loop: {e}", exc_info=True)
             raise
         finally:
-            self._running = False
             logger.info(f"Session {self.session_id} loop ended")
 
     async def _run_solo_mode(self, active_agents: Set[str]) -> None:
@@ -580,6 +583,7 @@ class ChatSession:
     async def _run_multi_agent_mode(self, active_agents: Set[str]) -> None:
         """Run multi-agent mode (all agents take turns)."""
         for agent in list(self.agents):
+            logger.info(f"Running turn for agent {agent.name}")
             # Check if still running
             if not self._running:
                 break

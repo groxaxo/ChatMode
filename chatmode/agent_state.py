@@ -277,11 +277,13 @@ class AgentStateManager:
     async def get_active_agents(self) -> Set[str]:
         """Get the set of currently active agent names."""
         async with self._lock:
-            return {
+            active_agents = {
                 name
                 for name, info in self._states.items()
                 if info.state == AgentState.ACTIVE
             }
+            logger.info(f"Active agents: {active_agents}")
+            return active_agents
 
     async def get_all_states(self) -> Dict[str, AgentStateInfo]:
         """Get all agent states (returns a copy)."""
