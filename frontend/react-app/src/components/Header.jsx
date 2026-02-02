@@ -49,7 +49,7 @@ export default function Header() {
           {/* Text Content */}
           <div className="flex-1">
             <div className="flex items-center gap-2 text-[0.65rem] uppercase tracking-[0.25em] text-cyber-muted mb-3 font-medium">
-              <span className="text-cyber-accent animate-pulse">◆</span>
+              <span className="text-cyber-accent animate-pulse" aria-hidden="true">◆</span>
               AI Agent Platform
             </div>
             <h1 className="text-3xl font-bold tracking-tight mb-2 bg-gradient-to-r from-cyber-text via-cyber-accent to-cyber-accent2 bg-clip-text text-transparent bg-[length:200%_200%] animate-gradient">
