@@ -322,12 +322,11 @@ Each agent has a profile JSON in the `profiles/` directory:
 ### Via CLI (Scripting)
 
 ```bash
-# List all agents
-python agent_manager.py list-agents
+# List all agents via API
+curl http://localhost:8002/api/v1/agents
 
 # Manually edit profiles
 nano profiles/my_agent.json
-nano agent_config.json
 
 # Restart to apply changes
 pkill -f web_admin

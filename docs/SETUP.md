@@ -416,14 +416,14 @@ docker run --rm -it \
 ### Via CLI (Alternative)
 
 ```bash
-# Using the CLI tool
-python agent_manager.py start "Your debate topic"
+# Using the web interface API
+curl -X POST http://localhost:8002/start -d "topic=Your debate topic"
 
 # Check status
-python agent_manager.py status
+curl http://localhost:8002/status
 
 # Stop session
-python agent_manager.py stop
+curl -X POST http://localhost:8002/stop
 ```
 
 ---

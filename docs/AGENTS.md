@@ -272,9 +272,11 @@ CHROMA_DIR=./data/chroma    # Persistence directory
 1. Go to Session Control tab
 2. Click "Clear Memory"
 
-**Via CLI:**
+**Via API:**
 ```bash
-python agent_manager.py clear-memory
+# Clear specific agent memory (requires authentication)
+curl -X DELETE http://localhost:8002/api/v1/agents/{agent_id}/memory \
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 **Manually:**
