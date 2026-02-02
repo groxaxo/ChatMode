@@ -140,6 +140,32 @@ body {
   animation: status-pulse 2s ease-in-out infinite;
 }
 
+/* Gradient animation for text */
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-gradient {
+  animation: gradient 5s ease infinite;
+}
+
+/* ASCII Art Glow Animation */
+@keyframes ascii-glow {
+  0%, 100% { 
+    text-shadow: 0 0 20px rgba(45, 212, 191, 0.5);
+    filter: brightness(1);
+  }
+  50% { 
+    text-shadow: 0 0 35px rgba(45, 212, 191, 0.8), 0 0 60px rgba(45, 212, 191, 0.4);
+    filter: brightness(1.1);
+  }
+}
+
+.animate-ascii-glow {
+  animation: ascii-glow 3s ease-in-out infinite;
+}
+
 /* Message animations */
 @keyframes message-appear {
   0% {
