@@ -382,7 +382,12 @@ async def resume_session():
 
 @app.post("/pause")
 async def pause_session():
-    """Pause the current session without clearing history or topic."""
+    """
+    Pause the current session without clearing history or topic.
+    
+    Note: This endpoint is duplicated in both web_admin.py and chatmode/main.py
+    because they are separate entry points that may be used independently.
+    """
     # Simply call chat_session.stop(), which sets _running=False but retains topic/history
     await chat_session.stop()
     return JSONResponse({"status": "paused"})
@@ -540,7 +545,12 @@ async def get_agent_states():
 
 @app.get("/agents")
 def list_agents(include_disabled: bool = False, db: Session = Depends(get_db)):
-    """Return minimal info about agents for the Agent Overview tab."""
+    """
+    Return minimal info about agents for the Agent Overview tab.
+    
+    Note: This endpoint is duplicated in both web_admin.py and chatmode/main.py
+    because they are separate entry points that may be used independently.
+    """
     agents, _ = crud.get_agents(db, page=1, per_page=100, enabled=(not include_disabled))
     return {
         "agents": [

@@ -3,6 +3,7 @@ Environment configuration management routes.
 """
 
 import asyncio
+import logging
 import os
 from pathlib import Path
 
@@ -12,10 +13,12 @@ from sqlalchemy.orm import Session
 
 from ..audit import AuditAction, get_client_ip, log_action
 from ..auth import require_role
-from ..database import get_db, SessionLocal
+from ..database import get_db
 from ..models import User
 from ..state_sync import get_project_root
 from ..services.provider_init import discover_providers_from_shell_configs, initialize_providers
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
 
@@ -110,8 +113,8 @@ async def import_shell_env(
     
     # Update or append values
     lines = existing.splitlines() if existing else []
-    # Remove any existing lines for these keys
-    lines = [line for line in lines if not any(k+"=" in line for k in shell_vars.keys())]
+    # Remove any existing lines for these keys (check at start of line)
+    lines = [line for line in lines if not any(line.strip().startswith(k+"=") for k in shell_vars.keys())]
     # Append new variables
     for key, value in shell_vars.items():
         lines.append(f"{key}={value}")
@@ -120,13 +123,15 @@ async def import_shell_env(
     # Write back to .env
     env_path.write_text(env_content)
     
-    # Reinitialise providers and sync models
-    db_session: Session = SessionLocal()
+    # Reinitialise providers and sync models using the injected db session
     try:
         # scan_shell_configs=False because we already merged shell variables
-        result = await initialize_providers(db_session, auto_sync=True, scan_shell_configs=False)
-    finally:
-        db_session.close()
+        result = await initialize_providers(db, auto_sync=True, scan_shell_configs=False)
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.error(f"Failed to initialize providers after shell import: {e}")
+        result = {"providers": [], "total_discovered": 0, "successful": 0, "failed": 0}
     
     # Log the action
     log_action(

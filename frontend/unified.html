@@ -1690,7 +1690,7 @@
           return;
         }
       } catch (err) {
-        console.warn('Shell import failed, falling back to regular load:', err);
+        console.warn('Shell import failed, falling back to regular load. Error:', err.message || err);
       }
       
       // Fallback to regular load if import fails
