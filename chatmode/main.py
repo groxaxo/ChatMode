@@ -9,16 +9,18 @@ import contextlib
 import logging
 import os
 
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 
 from .config import load_settings
-from .database import init_db
+from .database import init_db, get_db
 from .logger_config import get_logger, setup_logging
 from .session import ChatSession
+from . import crud
 
 # Setup logging
 logger = get_logger(__name__)
@@ -378,6 +380,19 @@ async def resume_session():
     )
 
 
+@app.post("/pause")
+async def pause_session():
+    """
+    Pause the current session without clearing history or topic.
+    
+    Note: This endpoint is duplicated in both web_admin.py and chatmode/main.py
+    because they are separate entry points that may be used independently.
+    """
+    # Simply call chat_session.stop(), which sets _running=False but retains topic/history
+    await chat_session.stop()
+    return JSONResponse({"status": "paused"})
+
+
 @app.post("/messages")
 def send_message(content: str = Form(...), sender: str = Form("Admin")):
     """Inject a message into the conversation."""
@@ -526,6 +541,27 @@ async def get_agent_states():
     """Get the current state of all agents."""
     states = await chat_session.get_agent_states()
     return JSONResponse({"agent_states": states})
+
+
+@app.get("/agents")
+def list_agents(include_disabled: bool = False, db: Session = Depends(get_db)):
+    """
+    Return minimal info about agents for the Agent Overview tab.
+    
+    Note: This endpoint is duplicated in both web_admin.py and chatmode/main.py
+    because they are separate entry points that may be used independently.
+    """
+    agents, _ = crud.get_agents(db, page=1, per_page=100, enabled=(not include_disabled))
+    return {
+        "agents": [
+            {
+                "name": agent.name,
+                "model": agent.model,
+                "api": agent.provider or "openai"
+            }
+            for agent in agents
+        ]
+    }
 
 
 # ============================================================================
