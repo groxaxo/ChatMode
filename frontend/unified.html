@@ -710,6 +710,7 @@
             <div class="btn-row">
               <button class="btn" id="start-btn">Start</button>
               <button class="btn" id="resume-btn">Resume</button>
+              <button class="btn" id="pause-btn">Pause</button>
               <button class="btn" id="stop-btn">Stop</button>
               <button class="btn danger" id="clear-btn">Clear Memory</button>
             </div>
@@ -771,6 +772,7 @@
           <h2>Quick Actions</h2>
           <div class="btn-row">
             <button class="btn" id="monitor-resume-btn">Resume</button>
+            <button class="btn" id="monitor-pause-btn">Pause</button>
             <button class="btn" id="monitor-stop-btn">Stop</button>
             <button class="btn danger" id="monitor-clear-btn">Clear</button>
           </div>
@@ -1177,6 +1179,19 @@
       }
     });
 
+    document.getElementById('pause-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('pause-btn');
+      setButtonLoading(btn, true);
+      try {
+        await postForm('/pause');
+        await refreshStatus();
+      } catch (err) {
+        alert(err.message || 'Failed to pause.');
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    });
+
     document.getElementById('stop-btn').addEventListener('click', async () => {
       const btn = document.getElementById('stop-btn');
       setButtonLoading(btn, true);
@@ -1235,6 +1250,15 @@
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to resume.');
+      }
+    });
+
+    document.getElementById('monitor-pause-btn').addEventListener('click', async () => {
+      try {
+        await postForm('/pause');
+        await refreshStatus();
+      } catch (err) {
+        alert(err.message || 'Failed to pause.');
       }
     });
 
@@ -1646,6 +1670,23 @@
 
     // Env config load/save
     document.getElementById('env-load-btn').addEventListener('click', async () => {
+      try {
+        // First, try to import from shell configs
+        const importRes = await agentApiCall('/api/v1/config/env/import-shell', { method: 'POST' });
+        if (importRes && importRes.ok) {
+          const importData = await importRes.json();
+          // Update the .env textarea with the new content
+          document.getElementById('env-content').value = importData.content || '';
+          const scannedFiles = importData.scanned_files || [];
+          const providerCount = importData.providers?.length || 0;
+          alert(`Environment variables imported from shell configs!\n\nScanned: ${scannedFiles.join(', ')}\nProviders updated: ${providerCount}`);
+          return;
+        }
+      } catch (err) {
+        console.warn('Shell import failed, falling back to regular load:', err);
+      }
+      
+      // Fallback to regular load if import fails
       const res = await agentApiCall('/api/v1/config/env');
       if (!res || !res.ok) {
         alert('Failed to load .env');

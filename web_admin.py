@@ -1,10 +1,11 @@
 import os
 import contextlib
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
 from chatmode.config import load_settings
 from chatmode.session import ChatSession
@@ -166,6 +167,14 @@ def resume_session():
     )
 
 
+@app.post("/pause")
+async def pause_session():
+    """Pause the current session without clearing history or topic."""
+    # Simply call chat_session.stop(), which sets _running=False but retains topic/history
+    await chat_session.stop()
+    return JSONResponse({"status": "paused"})
+
+
 @app.post("/messages")
 def send_message(content: str = Form(...), sender: str = Form("Admin")):
     # Apply content filter if configured
@@ -233,6 +242,22 @@ def get_filter_status():
         }
     else:
         return {"enabled": False, "message": "No filter configured"}
+
+
+@app.get("/agents")
+def list_agents(include_disabled: bool = False, db: Session = Depends(get_db)):
+    """Return minimal info about agents for the Agent Overview tab."""
+    agents, _ = crud.get_agents(db, page=1, per_page=100, enabled=(not include_disabled))
+    return {
+        "agents": [
+            {
+                "name": agent.name,
+                "model": agent.model,
+                "api": agent.provider or "openai"
+            }
+            for agent in agents
+        ]
+    }
 
 
 @app.get("/status")
