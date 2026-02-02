@@ -35,25 +35,24 @@ ChatMode is a Python-based platform for creating rich, multi-agent conversations
 ### One-Line Installation (Linux/macOS)
 
 ```bash
-# Clone and auto-install
+# Clone and install
 git clone https://github.com/groxaxo/ChatMode.git
 cd ChatMode
-./autoinstall.sh
+./install.sh
 ```
 
-The autoinstaller will:
+The installer will:
 - ✅ Create conda environment automatically
 - ✅ Install all dependencies (including bcrypt fix)
 - ✅ Create required directories (data/chroma, tts_out)
 - ✅ Initialize database with admin user
-- ✅ Verify agent_config.json placement
-- ✅ Create launcher script (start.sh)
+- ✅ Auto-discover and configure API providers
 - ✅ Offer to launch immediately
 
 ### One-Line Installation (Windows)
 
 ```cmd
-# Clone and auto-install
+# Clone and install
 git clone https://github.com/groxaxo/ChatMode.git
 cd ChatMode
 autoinstall.bat
@@ -86,17 +85,12 @@ cp .env.example .env
 
 ### Launch
 
-**Using the auto-generated launcher:**
-```bash
-./start.sh        # Linux/macOS
-start.bat         # Windows
-```
-
-**Or manually:**
 ```bash
 conda activate chatmode
 uvicorn web_admin:app --host 0.0.0.0 --port 8002
 ```
+
+Or use the launcher generated during installation (if available).
 
 ### Access
 

@@ -1,18 +1,39 @@
 __pycache__/
 *.pyc
 test.db
+
 # ChromaDB database files
 data/chroma/chroma.sqlite3
 *.sqlite3
 data/chroma/
 data/*.db
 data/*.backup_*
+
+# Logs and temporary files
 logs/
 *.log
+*.out
+backend_restart.log
+server.out
+uvicorn.log
+
+# Frontend build artifacts
 frontend/dist/
 frontend/react-app/node_modules/
 frontend/react-app/dist/
+
+# Environment files
 .env
 .env.*
-node_modules/
 !**/.env.example
+
+# Node modules
+node_modules/
+
+# TTS output (generated files)
+tts_out/*.wav
+tts_out/*.mp3
+
+# Temporary and obsolete files
+agent_config.json
+agent_config.json.full
