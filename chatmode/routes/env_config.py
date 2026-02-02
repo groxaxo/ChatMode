@@ -97,12 +97,17 @@ async def import_shell_env(
     # Build a dict of env vars to write
     shell_vars = {}
     for p in providers:
+        provider_name = p.get("name")
+        if not provider_name:
+            # Skip providers without names
+            continue
+            
         # Map to expected env variable names (e.g. DEEPSEEK_API_KEY)
         if p.get("api_key"):
-            env_key = p.get("name").upper() + "_API_KEY"
+            env_key = provider_name.upper() + "_API_KEY"
             shell_vars[env_key] = p["api_key"]
         if p.get("base_url"):
-            env_url = p.get("name").upper() + "_BASE_URL"
+            env_url = provider_name.upper() + "_BASE_URL"
             shell_vars[env_url] = p["base_url"]
     
     # Read existing .env
@@ -129,8 +134,7 @@ async def import_shell_env(
         result = await initialize_providers(db, auto_sync=True, scan_shell_configs=False)
     except Exception as e:
         # Log error but don't fail the request
-        import logging
-        logging.error(f"Failed to initialize providers after shell import: {e}")
+        logger.error(f"Failed to initialize providers after shell import: {e}")
         result = {"providers": [], "total_discovered": 0, "successful": 0, "failed": 0}
     
     # Log the action
