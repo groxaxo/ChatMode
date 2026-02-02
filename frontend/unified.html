@@ -57,7 +57,7 @@
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 18px;
-      padding: 20px 22px;
+      padding: 24px 28px;
       box-shadow: var(--shadow);
       position: relative;
       overflow: hidden;
@@ -71,66 +71,208 @@
       pointer-events: none;
     }
 
+    .brand-content {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .ascii-art {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.55rem;
+      line-height: 1.1;
+      color: var(--accent);
+      white-space: pre;
+      text-shadow: 0 0 20px rgba(45, 212, 191, 0.5);
+      animation: pulse-glow 3s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { text-shadow: 0 0 20px rgba(45, 212, 191, 0.5); }
+      50% { text-shadow: 0 0 35px rgba(45, 212, 191, 0.8), 0 0 60px rgba(45, 212, 191, 0.4); }
+    }
+
+    .brand-text {
+      flex: 1;
+    }
+
     .eyebrow {
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.26em;
       color: var(--muted);
       margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .eyebrow::before {
+      content: "◆";
+      color: var(--accent);
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
     }
 
     h1 {
-      font-size: 2rem;
+      font-size: 2.2rem;
       font-weight: 700;
       letter-spacing: -0.02em;
       margin-bottom: 10px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent) 50%, var(--accent-2) 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradient-shift 5s ease infinite;
+    }
+
+    @keyframes gradient-shift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
     }
 
     .subtitle {
       color: var(--muted);
       font-size: 0.95rem;
-      line-height: 1.4;
+      line-height: 1.5;
+    }
+
+    .feature-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .badge {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: rgba(45, 212, 191, 0.1);
+      border: 1px solid rgba(45, 212, 191, 0.3);
+      color: var(--accent);
+      transition: all 0.2s ease;
+    }
+
+    .badge:hover {
+      background: rgba(45, 212, 191, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .badge.orange {
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: var(--accent-2);
+    }
+
+    .badge.orange:hover {
+      background: rgba(245, 158, 11, 0.2);
+    }
+
+    @media (max-width: 768px) {
+      .brand-content {
+        flex-direction: column;
+        text-align: center;
+      }
+      .ascii-art {
+        font-size: 0.4rem;
+      }
+      .feature-badges {
+        justify-content: center;
+      }
     }
 
     .status-card {
       background: var(--panel-2);
       border: 1px solid var(--border);
       border-radius: 18px;
-      padding: 18px 20px;
+      padding: 22px 24px;
       box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      min-width: 280px;
+      gap: 14px;
+      min-width: 300px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .status-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+      background-size: 200% 100%;
+      animation: status-bar 3s linear infinite;
+    }
+
+    @keyframes status-bar {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 200% 0%; }
+    }
+
+    .status-card-title {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      margin-bottom: 4px;
     }
 
     .status-line {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 0.95rem;
+      gap: 12px;
+      font-size: 1rem;
       text-transform: uppercase;
       letter-spacing: 0.12em;
-      color: var(--muted);
+      font-weight: 600;
     }
 
     .dot {
-      width: 10px;
-      height: 10px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: var(--success);
       box-shadow: 0 0 12px rgba(34, 197, 94, 0.8);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 12px rgba(34, 197, 94, 0.8); }
+      50% { transform: scale(1.2); box-shadow: 0 0 20px rgba(34, 197, 94, 1); }
     }
 
     .dot.stopped {
       background: var(--accent-2);
       box-shadow: 0 0 12px rgba(245, 158, 11, 0.8);
+      animation: none;
     }
 
     .status-meta {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
+      padding: 8px 12px;
+      background: rgba(7, 12, 20, 0.6);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .status-icon {
+      margin-right: 6px;
     }
 
     .tabs {
@@ -509,17 +651,42 @@
   <div class="wrap">
     <header>
       <section class="brand">
-        <div class="eyebrow">Reun10n Ops</div>
-        <h1>ChatMode Unified Console</h1>
-        <p class="subtitle">Control multi-agent sessions, monitor conversations, and manage agent profiles.</p>
+        <div class="brand-content">
+          <pre class="ascii-art">
+   ██████╗██╗  ██╗ █████╗ ████████╗
+  ██╔════╝██║  ██║██╔══██╗╚══██╔══╝
+  ██║     ███████║███████║   ██║   
+  ██║     ██╔══██║██╔══██║   ██║   
+  ╚██████╗██║  ██║██║  ██║   ██║   
+   ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   
+  ███╗   ███╗ ██████╗ ██████╗ ███████╗
+  ████╗ ████║██╔═══██╗██╔══██╗██╔════╝
+  ██╔████╔██║██║   ██║██║  ██║█████╗  
+  ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  
+  ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗
+  ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝</pre>
+          <div class="brand-text">
+            <div class="eyebrow">AI Agent Platform</div>
+            <h1>ChatMode Unified Console</h1>
+            <p class="subtitle">Multi-agent orchestration system with semantic memory, voice synthesis, and real-time conversation control. Deploy intelligent conversations at scale.</p>
+            <div class="feature-badges">
+              <span class="badge">🤖 Multi-Agent</span>
+              <span class="badge">🧠 Semantic Memory</span>
+              <span class="badge orange">🎙️ Voice TTS</span>
+              <span class="badge">⚡ Real-time</span>
+              <span class="badge orange">🔧 MCP Tools</span>
+            </div>
+          </div>
+        </div>
       </section>
       <section class="status-card">
+        <div class="status-card-title">System Status</div>
         <div class="status-line">
           <span class="dot" id="status-dot"></span>
           <span id="status-text">stopped</span>
         </div>
-        <div class="status-meta" id="topic-line">Topic: Not set</div>
-        <div class="status-meta" id="updated-line">Last updated: --</div>
+        <div class="status-meta"><span class="status-icon">📋</span><span id="topic-line">Topic: Not set</span></div>
+        <div class="status-meta"><span class="status-icon">🕐</span><span id="updated-line">Last updated: --</span></div>
       </section>
     </header>
 
