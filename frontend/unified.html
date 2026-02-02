@@ -1088,7 +1088,14 @@
         }
         
         const running = Boolean(data.running);
-        statusText.textContent = running ? 'running' : 'stopped';
+        const hasTopic = Boolean(data.topic && data.topic !== 'Not set');
+        
+        // Display "paused" if not running but has a topic (indicates paused state)
+        if (!running && hasTopic) {
+          statusText.textContent = 'paused';
+        } else {
+          statusText.textContent = running ? 'running' : 'stopped';
+        }
         statusDot.classList.toggle('stopped', !running);
         
         let topicDisplay = data.topic || 'Not set';
