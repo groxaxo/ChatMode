@@ -71,7 +71,7 @@ Auto-detection works for:
 **Modified Files:**
 - `chatmode/models.py` - Added Provider and ProviderModel tables
 - `chatmode/providers.py` - Added dynamic provider registry
-- `chatmode/main.py` - Added provider initialization on startup
+- `web_admin.py` - Added provider initialization on startup
 - `chatmode/routes/__init__.py` - Added providers router
 - `chatmode/services/__init__.py` - Exported new functions
 - `autoinstall.sh` - v3.0 with shell config scanning

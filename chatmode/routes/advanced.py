@@ -22,7 +22,7 @@ from ..state_sync import sync_profiles_from_db
 
 router = APIRouter(prefix="/api/v1", tags=["advanced"])
 
-# Global session reference - will be set by main.py
+# Global session reference - will be set by web_admin.py
 _global_chat_session: Optional[ChatSession] = None
 
 

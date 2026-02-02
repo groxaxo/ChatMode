@@ -85,10 +85,10 @@ def main():
     print("Bootstrap complete!")
     print()
     print("Next steps:")
-    print("  1. Start the server: uvicorn chatmode.main:app --reload")
-    print("  2. Open: http://localhost:8000")
+    print("  1. Start the server: uvicorn web_admin:app --host 0.0.0.0 --port 8002")
+    print("  2. Open: http://localhost:8002")
     print("  3. Navigate to the Agent Manager tab and login with your admin credentials")
-    print("  4. (Optional) Run demo_setup.py to create demo agents")
+    print("  4. Review agent profiles in profiles/ directory")
 
 
 if __name__ == "__main__":
