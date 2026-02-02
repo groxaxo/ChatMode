@@ -61,7 +61,7 @@ fi
 
 # Remove log files
 echo -e "${BLUE}[4/4]${NC} Removing log files..."
-rm -f *.log backend_restart.log server.out uvicorn.log
+rm -f *.log *.out
 echo -e "${GREEN}✓ Log files removed${NC}"
 
 echo ""

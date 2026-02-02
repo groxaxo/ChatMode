@@ -29,6 +29,16 @@ fi
 echo -e "${GREEN}✓ Conda detected${NC}"
 echo ""
 
+# Check if autoinstall.sh exists and is executable
+if [ ! -f "./autoinstall.sh" ]; then
+    echo -e "${RED}Error: autoinstall.sh not found!${NC}"
+    echo "Please ensure you are running this script from the ChatMode directory."
+    exit 1
+fi
+
+# Make sure it's executable
+chmod +x ./autoinstall.sh
+
 # Run the comprehensive autoinstaller
 echo "Running comprehensive auto-installer..."
 echo ""
