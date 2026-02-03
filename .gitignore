@@ -37,3 +37,4 @@ tts_out/*.mp3
 # Temporary and obsolete files
 agent_config.json
 agent_config.json.full
+venv/

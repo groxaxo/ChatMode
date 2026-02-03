@@ -137,11 +137,11 @@ def admin_page(request: Request):
 
 
 @app.post("/start")
-def start_session(topic: str = Form("")):
+async def start_session(topic: str = Form("")):
     topic = topic.strip()
     if not topic:
         return RedirectResponse(url="/", status_code=303)
-    if chat_session.start(topic):
+    if await chat_session.start(topic):
         return RedirectResponse(url="/", status_code=303)
     return RedirectResponse(url="/", status_code=303)
 

@@ -140,6 +140,10 @@ class ChatSession:
             self.topic = topic
             self.history = []
             self.last_messages = []
+            
+            # Reset state manager for new session
+            self.state_manager = create_session_state_manager()
+            
             self.agents = load_agents(self.settings)
             logger.debug(f"Loaded {len(self.agents)} agents")
 

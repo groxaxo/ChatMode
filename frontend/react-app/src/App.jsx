@@ -10,31 +10,36 @@ import AgentManager from './components/AgentManager';
 import Toast from './components/Toast';
 
 function App() {
-  const { 
-    activeTab, 
-    refreshStatus, 
-    fetchCurrentUser, 
+  const {
+    activeTab,
+    refreshStatus,
+    fetchCurrentUser,
     fetchFilterStatus,
+    fetchAgents,
     authToken,
     error,
-    clearError 
+    clearError
   } = useStore();
-  
+
   // Status polling
   useEffect(() => {
     refreshStatus();
     fetchFilterStatus();
-    const interval = setInterval(refreshStatus, 2000);
+    fetchAgents();
+    const interval = setInterval(() => {
+      refreshStatus();
+      fetchAgents();
+    }, 1000);
     return () => clearInterval(interval);
-  }, [refreshStatus, fetchFilterStatus]);
-  
+  }, [refreshStatus, fetchFilterStatus, fetchAgents]);
+
   // Check auth on mount
   useEffect(() => {
     if (authToken) {
       fetchCurrentUser();
     }
   }, [authToken, fetchCurrentUser]);
-  
+
   // Background grid pattern
   const gridPattern = {
     backgroundImage: `
@@ -62,7 +67,7 @@ function App() {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-cyber-dark relative overflow-hidden"
       style={gridPattern}
     >
@@ -106,7 +111,7 @@ function App() {
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
         <Header />
         <TabBar />
-        
+
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -123,9 +128,9 @@ function App() {
       {/* Error Toast */}
       <AnimatePresence>
         {error && (
-          <Toast 
-            message={error} 
-            type="error" 
+          <Toast
+            message={error}
+            type="error"
             onClose={clearError}
           />
         )}
