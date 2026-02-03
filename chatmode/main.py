@@ -173,7 +173,9 @@ async def log_requests(request: Request, call_next):
         log_level = (
             logging.DEBUG
             if status_code < 400
-            else logging.WARNING if status_code < 500 else logging.ERROR
+            else logging.WARNING
+            if status_code < 500
+            else logging.ERROR
         )
 
         logger.log(
@@ -245,7 +247,8 @@ frontend_dir = os.getenv("FRONTEND_DIR") or (
 )
 
 # React frontend directory (built version)
-react_dist_dir = os.path.join(base_dir, "frontend", "react-app", "dist")
+# Build output from frontend/react-app/vite.config.js: outDir: '../dist'
+react_dist_dir = os.path.join(base_dir, "frontend", "dist")
 react_static_path = "/react-static"
 
 if os.path.exists(frontend_dir):
@@ -269,9 +272,22 @@ app.mount(
 app.mount("/audio", StaticFiles(directory="./data/audio"), name="audio")
 
 
-@app.get("/react", response_class=HTMLResponse)
-def react_app(request: Request):
-    """Serve the React frontend."""
+@app.get("/", response_class=HTMLResponse)
+def admin_page(request: Request):
+    """
+    Serve the default admin interface (React frontend).
+
+    DEFAULT FRONTEND: React Application
+    Location: frontend/react-app/dist/
+    Build command: cd frontend/react-app && npm run build
+
+    The React frontend provides:
+    - Agent Management with tickbox enable/disable
+    - Agent sorting (enabled agents appear at top)
+    - Real-time session monitoring
+    - User authentication and role-based access
+    - Provider configuration interface
+    """
     react_index = os.path.join(react_dist_dir, "index.html")
     if os.path.exists(react_index):
         with open(react_index, "r") as f:
@@ -280,137 +296,15 @@ def react_app(request: Request):
             content = content.replace('"/assets/', f'"{react_static_path}/assets/')
             content = content.replace('"/vite.svg"', f'"{react_static_path}/vite.svg"')
             return HTMLResponse(content=content)
+
+    # Error if React frontend is not built
     return HTMLResponse(
-        content="<h1>React Frontend Not Built</h1><p>Run: cd frontend/react-app && npm run build</p>"
+        content="""<h1>ChatMode - Frontend Not Built</h1>
+        <p>The React frontend needs to be built. Run:</p>
+        <pre>cd frontend/react-app && npm run build</pre>
+        <p>Then restart the server.</p>""",
+        status_code=503,
     )
-
-
-# Check if user prefers React frontend as default
-USE_REACT_FRONTEND = os.getenv("USE_REACT_FRONTEND", "false").lower() in (
-    "true",
-    "1",
-    "yes",
-    "on",
-)
-
-
-@app.get("/", response_class=HTMLResponse)
-def admin_page(request: Request):
-    """Serve the admin interface (React or classic based on env var)."""
-    # If React frontend preferred and available, redirect to /react
-    if USE_REACT_FRONTEND:
-        react_index = os.path.join(react_dist_dir, "index.html")
-        if os.path.exists(react_index):
-            with open(react_index, "r") as f:
-                content = f.read()
-                content = content.replace('"/assets/', f'"{react_static_path}/assets/')
-                content = content.replace(
-                    '"/vite.svg"', f'"{react_static_path}/vite.svg"'
-                )
-                return HTMLResponse(content=content)
-
-    # Default: serve unified.html
-    unified_path = os.path.join(frontend_dir, "unified.html")
-    if os.path.exists(unified_path):
-        with open(unified_path, "r") as f:
-            return HTMLResponse(content=f.read())
-
-    # Fallback to template if unified.html is missing
-    if templates:
-        return templates.TemplateResponse(
-            "admin.html",
-            {
-                "request": request,
-                "running": chat_session.is_running(),
-                "topic": chat_session.topic,
-            },
-        )
-
-    return HTMLResponse(
-        content="<h1>ChatMode</h1><p>Please configure frontend directory</p>"
-    )
-
-
-@app.post("/start")
-async def start_session(topic: str = Form("")):
-    """Start a new chat session."""
-    topic = topic.strip()
-    if not topic:
-        return JSONResponse(
-            {"status": "failed", "reason": "Topic is required"},
-            status_code=400
-        )
-    if await chat_session.start(topic):
-        return JSONResponse({
-            "status": "started",
-            "session_id": chat_session.session_id,
-            "topic": chat_session.topic
-        })
-    return JSONResponse(
-        {"status": "failed", "reason": "Session already running"},
-        status_code=400
-    )
-
-
-@app.post("/stop")
-async def stop_session():
-    """Stop the current chat session."""
-    await chat_session.stop()
-    return JSONResponse({"status": "stopped"})
-
-
-@app.post("/memory/clear")
-def clear_memory():
-    """Clear session memory."""
-    chat_session.clear_memory()
-    return JSONResponse({"status": "memory_cleared"})
-
-
-@app.post("/resume")
-async def resume_session():
-    """Resume a paused session."""
-    if await chat_session.resume():
-        return JSONResponse({
-            "status": "resumed",
-            "session_id": chat_session.session_id,
-            "topic": chat_session.topic
-        })
-    return JSONResponse(
-        {"status": "failed", "reason": "Already running or no topic"}, status_code=400
-    )
-
-
-@app.post("/pause")
-async def pause_session():
-    """
-    Pause the current session without clearing history or topic.
-    
-    Note: This endpoint is duplicated in both web_admin.py and chatmode/main.py
-    because they are separate entry points that may be used independently.
-    """
-    # Simply call chat_session.stop(), which sets _running=False but retains topic/history
-    await chat_session.stop()
-    return JSONResponse({"status": "paused"})
-
-
-@app.post("/messages")
-def send_message(content: str = Form(...), sender: str = Form("Admin")):
-    """Inject a message into the conversation."""
-    content = content.strip()
-    sender = sender.strip()
-    
-    if not content:
-        return JSONResponse(
-            {"status": "failed", "reason": "Message content is required"},
-            status_code=400
-        )
-    
-    # If sender is empty after stripping, use default
-    if not sender:
-        sender = "Admin"
-    
-    chat_session.inject_message(sender, content)
-    return JSONResponse({"status": "sent", "sender": sender})
 
 
 @app.get("/status")
@@ -493,7 +387,9 @@ async def stop_agent(agent_name: str, reason: str = Form(None)):
     """Stop a specific agent."""
     success = await chat_session.stop_agent(agent_name, reason)
     if success:
-        return JSONResponse({"status": "stopped", "agent": agent_name, "reason": reason})
+        return JSONResponse(
+            {"status": "stopped", "agent": agent_name, "reason": reason}
+        )
     return JSONResponse(
         {
             "status": "failed",
@@ -509,7 +405,9 @@ async def finish_agent(agent_name: str, reason: str = Form(None)):
     """Mark an agent as finished."""
     success = await chat_session.finish_agent(agent_name, reason)
     if success:
-        return JSONResponse({"status": "finished", "agent": agent_name, "reason": reason})
+        return JSONResponse(
+            {"status": "finished", "agent": agent_name, "reason": reason}
+        )
     return JSONResponse(
         {
             "status": "failed",
@@ -547,17 +445,19 @@ async def get_agent_states():
 def list_agents(include_disabled: bool = False, db: Session = Depends(get_db)):
     """
     Return minimal info about agents for the Agent Overview tab.
-    
+
     Note: This endpoint is duplicated in both web_admin.py and chatmode/main.py
     because they are separate entry points that may be used independently.
     """
-    agents, _ = crud.get_agents(db, page=1, per_page=100, enabled=(not include_disabled))
+    agents, _ = crud.get_agents(
+        db, page=1, per_page=100, enabled=(not include_disabled)
+    )
     return {
         "agents": [
             {
                 "name": agent.name,
                 "model": agent.model,
-                "api": agent.provider or "openai"
+                "api": agent.provider or "openai",
             }
             for agent in agents
         ]

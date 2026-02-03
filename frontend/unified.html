@@ -1164,7 +1164,7 @@
       const btn = document.getElementById('start-btn');
       setButtonLoading(btn, true);
       try {
-        await postForm('/start', { topic });
+        await postForm('/api/v1/control/start', { topic });
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to start.');
@@ -1177,7 +1177,7 @@
       const btn = document.getElementById('resume-btn');
       setButtonLoading(btn, true);
       try {
-        await postForm('/resume');
+        await postForm('/api/v1/control/resume');
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to resume.');
@@ -1190,7 +1190,7 @@
       const btn = document.getElementById('pause-btn');
       setButtonLoading(btn, true);
       try {
-        await postForm('/pause');
+        await postForm('/api/v1/control/pause');
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to pause.');
@@ -1203,7 +1203,7 @@
       const btn = document.getElementById('stop-btn');
       setButtonLoading(btn, true);
       try {
-        await postForm('/stop');
+        await postForm('/api/v1/control/stop');
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to stop.');
@@ -1217,7 +1217,7 @@
       const btn = document.getElementById('clear-btn');
       setButtonLoading(btn, true);
       try {
-        await postForm('/memory/clear');
+        await postForm('/api/v1/control/memory/clear');
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to clear memory.');
@@ -1231,7 +1231,7 @@
       const content = document.getElementById('content').value.trim();
       if (!content) return alert('Message is empty.');
       try {
-        await postForm('/messages', { sender, content });
+        await postForm('/api/v1/control/messages', { sender, content });
         document.getElementById('content').value = '';
         await refreshStatus();
       } catch (err) {
@@ -1244,7 +1244,7 @@
       const topic = document.getElementById('monitor-topic').value.trim();
       if (!topic) return alert('Please enter a topic.');
       try {
-        await postForm('/start', { topic });
+        await postForm('/api/v1/control/start', { topic });
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to start.');
@@ -1253,7 +1253,7 @@
 
     document.getElementById('monitor-resume-btn').addEventListener('click', async () => {
       try {
-        await postForm('/resume');
+        await postForm('/api/v1/control/resume');
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to resume.');
@@ -1262,7 +1262,7 @@
 
     document.getElementById('monitor-pause-btn').addEventListener('click', async () => {
       try {
-        await postForm('/pause');
+        await postForm('/api/v1/control/pause');
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to pause.');
@@ -1271,7 +1271,7 @@
 
     document.getElementById('monitor-stop-btn').addEventListener('click', async () => {
       try {
-        await postForm('/stop');
+        await postForm('/api/v1/control/stop');
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to stop.');
@@ -1281,7 +1281,7 @@
     document.getElementById('monitor-clear-btn').addEventListener('click', async () => {
       if (!confirm('Clear conversation memory?')) return;
       try {
-        await postForm('/memory/clear');
+        await postForm('/api/v1/control/memory/clear');
         await refreshStatus();
       } catch (err) {
         alert(err.message || 'Failed to clear memory.');
@@ -1507,7 +1507,7 @@
 
     // Sync state button
     document.getElementById('sync-state-btn').addEventListener('click', async () => {
-      const res = await agentApiCall('/api/v1/state/sync', { method: 'POST' });
+      const res = await agentApiCall('/api/v1/providers/sync-all', { method: 'POST' });
       if (!res || !res.ok) {
         alert('Failed to sync state.');
         return;

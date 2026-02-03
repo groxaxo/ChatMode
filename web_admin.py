@@ -103,15 +103,18 @@ except ImportError as e:
 templates = Jinja2Templates(directory="templates")
 
 base_dir = os.path.dirname(__file__)
-default_frontend_dir = os.path.join(base_dir, "frontend")
-reun10n_frontend_dir = os.path.join(base_dir, "Reun10n", "frontend")
-frontend_dir = os.getenv("FRONTEND_DIR") or (
-    reun10n_frontend_dir
-    if os.path.isdir(reun10n_frontend_dir)
-    else default_frontend_dir
-)
 
-app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
+# React frontend directory (built version)
+# Build output from frontend/react-app/vite.config.js: outDir: '../dist'
+react_dist_dir = os.path.join(base_dir, "frontend", "dist")
+react_static_path = "/react-static"
+
+# Serve React build assets if available
+if os.path.exists(react_dist_dir):
+    app.mount(
+        react_static_path, StaticFiles(directory=react_dist_dir), name="react_static"
+    )
+
 # Mount audio directory
 os.makedirs(settings.tts_output_dir, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=settings.tts_output_dir), name="audio")
@@ -119,20 +122,35 @@ app.mount("/audio", StaticFiles(directory=settings.tts_output_dir), name="audio"
 
 @app.get("/", response_class=HTMLResponse)
 def admin_page(request: Request):
-    # Serve unified.html as the main admin interface
-    unified_path = os.path.join(frontend_dir, "unified.html")
-    if os.path.exists(unified_path):
-        with open(unified_path, "r") as f:
-            return HTMLResponse(content=f.read())
+    """
+    Serve the default admin interface (React frontend).
 
-    # Fallback to template if unified.html is missing
-    return templates.TemplateResponse(
-        "admin.html",
-        {
-            "request": request,
-            "running": chat_session.is_running(),
-            "topic": chat_session.topic,
-        },
+    DEFAULT FRONTEND: React Application
+    Location: frontend/react-app/dist/
+    Build command: cd frontend/react-app && npm run build
+
+    The React frontend provides:
+    - Agent Management with tickbox enable/disable
+    - Agent sorting (enabled agents appear at top)
+    - Real-time session monitoring
+    - User authentication and role-based access
+    """
+    react_index = os.path.join(react_dist_dir, "index.html")
+    if os.path.exists(react_index):
+        with open(react_index, "r") as f:
+            content = f.read()
+            # Rewrite asset paths to use /react-static/
+            content = content.replace('"/assets/', f'"{react_static_path}/assets/')
+            content = content.replace('"/vite.svg"', f'"{react_static_path}/vite.svg"')
+            return HTMLResponse(content=content)
+
+    # Error if React frontend is not built
+    return HTMLResponse(
+        content="""<h1>ChatMode - Frontend Not Built</h1>
+        <p>The React frontend needs to be built. Run:</p>
+        <pre>cd frontend/react-app && npm run build</pre>
+        <p>Then restart the server.</p>""",
+        status_code=503,
     )
 
 
@@ -147,8 +165,8 @@ async def start_session(topic: str = Form("")):
 
 
 @app.post("/stop")
-def stop_session():
-    chat_session.stop()
+async def stop_session():
+    await chat_session.stop()
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -159,8 +177,8 @@ def clear_memory():
 
 
 @app.post("/resume")
-def resume_session():
-    if chat_session.resume():
+async def resume_session():
+    if await chat_session.resume():
         return {"status": "resumed"}
     return JSONResponse(
         {"status": "failed", "reason": "Already running or no topic"}, status_code=400
@@ -171,7 +189,7 @@ def resume_session():
 async def pause_session():
     """
     Pause the current session without clearing history or topic.
-    
+
     Note: This endpoint is duplicated in both web_admin.py and chatmode/main.py
     because they are separate entry points that may be used independently.
     """
@@ -212,12 +230,12 @@ def reload_filter():
 
 
 @app.post("/filter/toggle")
-def toggle_filter(request: Request):
+async def toggle_filter(request: Request):
     """Toggle content filter on/off globally."""
     try:
         import json
 
-        body = json.loads(request.body())
+        body = json.loads(await request.body())
         enabled = body.get("enabled", True)
 
         if chat_session.content_filter:
@@ -253,17 +271,19 @@ def get_filter_status():
 def list_agents(include_disabled: bool = False, db: Session = Depends(get_db)):
     """
     Return minimal info about agents for the Agent Overview tab.
-    
+
     Note: This endpoint is duplicated in both web_admin.py and chatmode/main.py
     because they are separate entry points that may be used independently.
     """
-    agents, _ = crud.get_agents(db, page=1, per_page=100, enabled=(not include_disabled))
+    agents, _ = crud.get_agents(
+        db, page=1, per_page=100, enabled=(not include_disabled)
+    )
     return {
         "agents": [
             {
                 "name": agent.name,
                 "model": agent.model,
-                "api": agent.provider or "openai"
+                "api": agent.provider or "openai",
             }
             for agent in agents
         ]
@@ -293,3 +313,30 @@ def status(request: Request):
             "last_messages": messages,
         }
     )
+
+
+@app.get("/profiles")
+def list_profiles():
+    """List available agent profiles from the profiles directory."""
+    import glob
+    import json
+
+    profiles = []
+    profiles_dir = "profiles"
+
+    if os.path.exists(profiles_dir):
+        files = glob.glob(os.path.join(profiles_dir, "*.json"))
+        # Sort files to make list stable/alphabetical
+        files.sort()
+
+        for f_path in files:
+            try:
+                with open(f_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    # Add filename to help identify source
+                    data["_filename"] = os.path.basename(f_path)
+                    profiles.append(data)
+            except Exception as e:
+                print(f"Error reading profile {f_path}: {e}")
+
+    return {"profiles": profiles}

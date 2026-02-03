@@ -25,7 +25,7 @@ from ..services.provider_sync import (
     sync_provider_models,
 )
 
-router = APIRouter(prefix="/providers", tags=["providers"])
+router = APIRouter(prefix="/api/v1/providers", tags=["providers"])
 
 
 # =============================================================================

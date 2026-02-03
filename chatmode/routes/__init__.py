@@ -9,6 +9,7 @@ from .agents import router as agents_router
 from .audio import router as audio_router
 from .audit_routes import router as audit_router
 from .auth_routes import router as auth_router
+from .control import router as control_router
 from .conversations import router as conversations_router
 from .env_config import router as env_config_router
 from .filter import router as filter_router
@@ -22,6 +23,7 @@ all_routers = [
     providers_router,
     env_config_router,
     audio_router,
+    control_router,
     conversations_router,
     users_router,
     audit_router,
@@ -33,6 +35,7 @@ __all__ = [
     "agents_router",
     "auth_router",
     "audio_router",
+    "control_router",
     "conversations_router",
     "users_router",
     "audit_router",
