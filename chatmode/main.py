@@ -355,7 +355,14 @@ async def pause_agent(agent_name: str, reason: str = Form(None)):
     """Pause a specific agent."""
     success = await chat_session.pause_agent(agent_name, reason)
     if success:
-        return JSONResponse({"status": "paused", "agent": agent_name, "reason": reason})
+        # Get updated agent state to return immediately
+        agent_states = await chat_session.get_agent_states()
+        return JSONResponse({
+            "status": "paused", 
+            "agent": agent_name, 
+            "reason": reason,
+            "agent_state": agent_states.get(agent_name, {})
+        })
     return JSONResponse(
         {
             "status": "failed",
@@ -371,7 +378,13 @@ async def resume_agent(agent_name: str):
     """Resume a paused agent."""
     success = await chat_session.resume_agent(agent_name)
     if success:
-        return JSONResponse({"status": "resumed", "agent": agent_name})
+        # Get updated agent state to return immediately
+        agent_states = await chat_session.get_agent_states()
+        return JSONResponse({
+            "status": "resumed", 
+            "agent": agent_name,
+            "agent_state": agent_states.get(agent_name, {})
+        })
     return JSONResponse(
         {
             "status": "failed",
@@ -387,9 +400,14 @@ async def stop_agent(agent_name: str, reason: str = Form(None)):
     """Stop a specific agent."""
     success = await chat_session.stop_agent(agent_name, reason)
     if success:
-        return JSONResponse(
-            {"status": "stopped", "agent": agent_name, "reason": reason}
-        )
+        # Get updated agent state to return immediately
+        agent_states = await chat_session.get_agent_states()
+        return JSONResponse({
+            "status": "stopped", 
+            "agent": agent_name, 
+            "reason": reason,
+            "agent_state": agent_states.get(agent_name, {})
+        })
     return JSONResponse(
         {
             "status": "failed",
@@ -405,9 +423,14 @@ async def finish_agent(agent_name: str, reason: str = Form(None)):
     """Mark an agent as finished."""
     success = await chat_session.finish_agent(agent_name, reason)
     if success:
-        return JSONResponse(
-            {"status": "finished", "agent": agent_name, "reason": reason}
-        )
+        # Get updated agent state to return immediately
+        agent_states = await chat_session.get_agent_states()
+        return JSONResponse({
+            "status": "finished", 
+            "agent": agent_name, 
+            "reason": reason,
+            "agent_state": agent_states.get(agent_name, {})
+        })
     return JSONResponse(
         {
             "status": "failed",
@@ -423,7 +446,13 @@ async def restart_agent(agent_name: str):
     """Restart a stopped or finished agent."""
     success = await chat_session.restart_agent(agent_name)
     if success:
-        return JSONResponse({"status": "restarted", "agent": agent_name})
+        # Get updated agent state to return immediately
+        agent_states = await chat_session.get_agent_states()
+        return JSONResponse({
+            "status": "restarted", 
+            "agent": agent_name,
+            "agent_state": agent_states.get(agent_name, {})
+        })
     return JSONResponse(
         {
             "status": "failed",

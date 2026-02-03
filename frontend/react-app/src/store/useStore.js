@@ -293,58 +293,198 @@ export const useStore = create(
       
       // Agent Control Actions
       pauseAgent: async (agentName, reason = null) => {
+        // Optimistic update
+        const currentStates = get().agentStates;
+        set({ 
+          agentStates: {
+            ...currentStates,
+            [agentName]: {
+              ...currentStates[agentName],
+              state: 'paused',
+              reason: reason || null,
+              changed_at: new Date().toISOString(),
+            }
+          }
+        });
+        
         try {
           const formData = reason ? { reason } : {};
-          await postForm(`/agents/${agentName}/pause`, formData);
-          await get().refreshStatus();
+          const response = await postForm(`/agents/${agentName}/pause`, formData);
+          
+          // Update with authoritative backend state if available
+          if (response.agent_state) {
+            set({ 
+              agentStates: {
+                ...get().agentStates,
+                [agentName]: response.agent_state
+              }
+            });
+          } else {
+            // Fallback: refresh to get authoritative state from backend
+            await get().refreshStatus();
+          }
           return true;
         } catch (error) {
+          // Revert optimistic update on error
+          await get().refreshStatus();
           set({ error: error.message });
           return false;
         }
       },
       
       resumeAgent: async (agentName) => {
+        // Optimistic update
+        const currentStates = get().agentStates;
+        set({ 
+          agentStates: {
+            ...currentStates,
+            [agentName]: {
+              ...currentStates[agentName],
+              state: 'active',
+              reason: null,
+              changed_at: new Date().toISOString(),
+            }
+          }
+        });
+        
         try {
-          await postForm(`/agents/${agentName}/resume`);
-          await get().refreshStatus();
+          const response = await postForm(`/agents/${agentName}/resume`);
+          
+          // Update with authoritative backend state if available
+          if (response.agent_state) {
+            set({ 
+              agentStates: {
+                ...get().agentStates,
+                [agentName]: response.agent_state
+              }
+            });
+          } else {
+            // Fallback: refresh to get authoritative state from backend
+            await get().refreshStatus();
+          }
           return true;
         } catch (error) {
+          // Revert optimistic update on error
+          await get().refreshStatus();
           set({ error: error.message });
           return false;
         }
       },
       
       stopAgent: async (agentName, reason = null) => {
+        // Optimistic update
+        const currentStates = get().agentStates;
+        set({ 
+          agentStates: {
+            ...currentStates,
+            [agentName]: {
+              ...currentStates[agentName],
+              state: 'stopped',
+              reason: reason || null,
+              changed_at: new Date().toISOString(),
+            }
+          }
+        });
+        
         try {
           const formData = reason ? { reason } : {};
-          await postForm(`/agents/${agentName}/stop`, formData);
-          await get().refreshStatus();
+          const response = await postForm(`/agents/${agentName}/stop`, formData);
+          
+          // Update with authoritative backend state if available
+          if (response.agent_state) {
+            set({ 
+              agentStates: {
+                ...get().agentStates,
+                [agentName]: response.agent_state
+              }
+            });
+          } else {
+            // Fallback: refresh to get authoritative state from backend
+            await get().refreshStatus();
+          }
           return true;
         } catch (error) {
+          // Revert optimistic update on error
+          await get().refreshStatus();
           set({ error: error.message });
           return false;
         }
       },
       
       finishAgent: async (agentName, reason = null) => {
+        // Optimistic update
+        const currentStates = get().agentStates;
+        set({ 
+          agentStates: {
+            ...currentStates,
+            [agentName]: {
+              ...currentStates[agentName],
+              state: 'finished',
+              reason: reason || null,
+              changed_at: new Date().toISOString(),
+            }
+          }
+        });
+        
         try {
           const formData = reason ? { reason } : {};
-          await postForm(`/agents/${agentName}/finish`, formData);
-          await get().refreshStatus();
+          const response = await postForm(`/agents/${agentName}/finish`, formData);
+          
+          // Update with authoritative backend state if available
+          if (response.agent_state) {
+            set({ 
+              agentStates: {
+                ...get().agentStates,
+                [agentName]: response.agent_state
+              }
+            });
+          } else {
+            // Fallback: refresh to get authoritative state from backend
+            await get().refreshStatus();
+          }
           return true;
         } catch (error) {
+          // Revert optimistic update on error
+          await get().refreshStatus();
           set({ error: error.message });
           return false;
         }
       },
       
       restartAgent: async (agentName) => {
+        // Optimistic update
+        const currentStates = get().agentStates;
+        set({ 
+          agentStates: {
+            ...currentStates,
+            [agentName]: {
+              ...currentStates[agentName],
+              state: 'active',
+              reason: 'Agent restarted',
+              changed_at: new Date().toISOString(),
+            }
+          }
+        });
+        
         try {
-          await postForm(`/agents/${agentName}/restart`);
-          await get().refreshStatus();
+          const response = await postForm(`/agents/${agentName}/restart`);
+          
+          // Update with authoritative backend state if available
+          if (response.agent_state) {
+            set({ 
+              agentStates: {
+                ...get().agentStates,
+                [agentName]: response.agent_state
+              }
+            });
+          } else {
+            // Fallback: refresh to get authoritative state from backend
+            await get().refreshStatus();
+          }
           return true;
         } catch (error) {
+          // Revert optimistic update on error
+          await get().refreshStatus();
           set({ error: error.message });
           return false;
         }
