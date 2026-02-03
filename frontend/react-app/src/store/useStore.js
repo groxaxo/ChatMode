@@ -231,7 +231,19 @@ export const useStore = create(
       startSession: async (topic) => {
         set({ isLoading: true, error: null });
         try {
-          await postForm('/start', { topic });
+          const response = await postForm('/start', { topic });
+          
+          // Update with response state immediately if available
+          if (response.running !== undefined) {
+            set({ 
+              isRunning: Boolean(response.running),
+              topic: response.topic || topic,
+              sessionId: response.session_id,
+              isLoading: false,
+            });
+          }
+          
+          // Then refresh for complete state
           await get().refreshStatus();
           set({ isLoading: false });
           return true;
@@ -244,7 +256,17 @@ export const useStore = create(
       stopSession: async () => {
         set({ isLoading: true, error: null });
         try {
-          await postForm('/stop');
+          const response = await postForm('/stop');
+          
+          // Update with response state immediately if available
+          if (response.running !== undefined) {
+            set({ 
+              isRunning: Boolean(response.running),
+              isLoading: false,
+            });
+          }
+          
+          // Then refresh for complete state
           await get().refreshStatus();
           set({ isLoading: false });
           return true;
@@ -257,7 +279,19 @@ export const useStore = create(
       resumeSession: async () => {
         set({ isLoading: true, error: null });
         try {
-          await postForm('/resume');
+          const response = await postForm('/resume');
+          
+          // Update with response state immediately if available
+          if (response.running !== undefined) {
+            set({ 
+              isRunning: Boolean(response.running),
+              topic: response.topic || get().topic,
+              sessionId: response.session_id || get().sessionId,
+              isLoading: false,
+            });
+          }
+          
+          // Then refresh for complete state
           await get().refreshStatus();
           set({ isLoading: false });
           return true;
