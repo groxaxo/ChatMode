@@ -158,16 +158,30 @@ def admin_page(request: Request):
 async def start_session(topic: str = Form("")):
     topic = topic.strip()
     if not topic:
-        return RedirectResponse(url="/", status_code=303)
+        return JSONResponse(
+            {"status": "failed", "reason": "Topic is required"}, status_code=400
+        )
     if await chat_session.start(topic):
-        return RedirectResponse(url="/", status_code=303)
-    return RedirectResponse(url="/", status_code=303)
+        # Return session state immediately
+        return JSONResponse({
+            "status": "started",
+            "session_id": chat_session.session_id,
+            "topic": chat_session.topic,
+            "running": chat_session.is_running(),
+        })
+    return JSONResponse(
+        {"status": "failed", "reason": "Session already running"}, status_code=400
+    )
 
 
 @app.post("/stop")
 async def stop_session():
     await chat_session.stop()
-    return RedirectResponse(url="/", status_code=303)
+    # Return session state immediately
+    return JSONResponse({
+        "status": "stopped",
+        "running": chat_session.is_running(),
+    })
 
 
 @app.post("/memory/clear")
@@ -179,7 +193,13 @@ def clear_memory():
 @app.post("/resume")
 async def resume_session():
     if await chat_session.resume():
-        return {"status": "resumed"}
+        # Return session state immediately
+        return JSONResponse({
+            "status": "resumed",
+            "session_id": chat_session.session_id,
+            "topic": chat_session.topic,
+            "running": chat_session.is_running(),
+        })
     return JSONResponse(
         {"status": "failed", "reason": "Already running or no topic"}, status_code=400
     )
@@ -216,7 +236,12 @@ def send_message(content: str = Form(...), sender: str = Form("Admin")):
             )
         content = filtered_content
     chat_session.inject_message(sender, content)
-    return {"status": "sent"}
+    # Return success with message count
+    return JSONResponse({
+        "status": "sent",
+        "sender": sender,
+        "message_count": len(chat_session.last_messages),
+    })
 
 
 @app.post("/filter/reload")
