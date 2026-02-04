@@ -16,7 +16,36 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 # Check if conda is installed
-if ! command -v conda &> /dev/null; then
+find_conda() {
+    if command -v conda &> /dev/null; then
+        echo "conda"
+        return 0
+    fi
+
+    local paths=(
+        "$HOME/miniconda3/bin/conda"
+        "$HOME/anaconda3/bin/conda"
+        "$HOME/miniconda/bin/conda"
+        "$HOME/anaconda/bin/conda"
+        "/opt/conda/bin/conda"
+        "/opt/anaconda3/bin/conda"
+        "/opt/miniconda3/bin/conda"
+        "/usr/local/anaconda3/bin/conda"
+        "/usr/local/miniconda3/bin/conda"
+    )
+
+    for path in "${paths[@]}"; do
+        if [ -x "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+CONDA_EXE=$(find_conda)
+if [ $? -ne 0 ]; then
     echo -e "${RED}Error: Conda is not installed!${NC}"
     echo ""
     echo "Please install Miniconda or Anaconda first:"
@@ -26,7 +55,12 @@ if ! command -v conda &> /dev/null; then
     exit 1
 fi
 
-echo -e "${GREEN}✓ Conda detected${NC}"
+if [[ "$CONDA_EXE" != "conda" ]]; then
+    export PATH="$(dirname "$CONDA_EXE"):$PATH"
+    echo -e "${GREEN}✓ Conda detected at $CONDA_EXE${NC}"
+else
+    echo -e "${GREEN}✓ Conda detected${NC}"
+fi
 echo ""
 
 # Check if autoinstall.sh exists and is executable

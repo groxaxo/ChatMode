@@ -60,10 +60,46 @@ print_feature() {
 }
 
 # Check if conda is installed
+find_conda() {
+    if command -v conda &> /dev/null; then
+        echo "conda"
+        return 0
+    fi
+
+    local paths=(
+        "$HOME/miniconda3/bin/conda"
+        "$HOME/anaconda3/bin/conda"
+        "$HOME/miniconda/bin/conda"
+        "$HOME/anaconda/bin/conda"
+        "/opt/conda/bin/conda"
+        "/opt/anaconda3/bin/conda"
+        "/opt/miniconda3/bin/conda"
+        "/usr/local/anaconda3/bin/conda"
+        "/usr/local/miniconda3/bin/conda"
+    )
+
+    for path in "${paths[@]}"; do
+        if [ -x "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 check_conda() {
     print_status "Checking for conda..."
-    if command -v conda &> /dev/null; then
-        print_success "Conda found at: $(which conda)"
+    if CONDA_EXE=$(find_conda); then
+        if [[ "$CONDA_EXE" != "conda" ]]; then
+             export PATH="$(dirname "$CONDA_EXE"):$PATH"
+             print_success "Conda found at: $CONDA_EXE"
+        else
+             print_success "Conda found at: $(which conda)"
+        fi
+        
+        # Capture base for later use
+        CONDA_BASE=$(conda info --base)
         return 0
     else
         print_error "Conda is not installed!"
@@ -103,7 +139,7 @@ install_deps() {
     print_status "Installing additional dependencies..."
     
     # Activate environment
-    source $(conda info --base)/etc/profile.d/conda.sh
+    source $CONDA_BASE/etc/profile.d/conda.sh
     conda activate $CONDA_ENV_NAME
     
     # Fix bcrypt compatibility
@@ -112,6 +148,7 @@ install_deps() {
     
     print_success "Dependencies installed"
 }
+
 
 # Setup directories
 setup_directories() {
@@ -329,7 +366,7 @@ init_database() {
     cd "$PROJECT_DIR"
     
     # Activate environment
-    source $(conda info --base)/etc/profile.d/conda.sh
+    source $CONDA_BASE/etc/profile.d/conda.sh
     conda activate $CONDA_ENV_NAME
     
     # Run bootstrap script
@@ -377,7 +414,7 @@ create_launcher() {
 # Features: Multi-provider support, auto model discovery
 
 cd "$PROJECT_DIR"
-source \$(conda info --base)/etc/profile.d/conda.sh
+source $CONDA_BASE/etc/profile.d/conda.sh
 conda activate $CONDA_ENV_NAME
 
 echo "╔════════════════════════════════════════════════════════════════╗"
@@ -441,7 +478,7 @@ PROVIDER_URL=$2
 PROVIDER_KEY=${3:-}
 
 cd "$(dirname "$0")"
-source $(conda info --base)/etc/profile.d/conda.sh
+source CONDA_BASE_PLACEHOLDER/etc/profile.d/conda.sh
 conda activate chatmode
 
 python << PYTHON
@@ -485,6 +522,7 @@ asyncio.run(main())
 PYTHON
 EOF
 
+    sed -i "s|CONDA_BASE_PLACEHOLDER|$CONDA_BASE|g" "$PROJECT_DIR/add_provider.sh"
     chmod +x "$PROJECT_DIR/add_provider.sh"
     print_success "Created add_provider.sh helper"
 }
