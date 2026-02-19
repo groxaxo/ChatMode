@@ -89,6 +89,8 @@ export const useStore = create(
       // Connection State
       connectionStatus: 'connected',
       lastUpdated: null,
+      eventSource: null,
+      messageRate: 1.0,
       
       // Agent Management
       agents: [],
@@ -207,31 +209,58 @@ export const useStore = create(
       },
       
       // Session Actions
+      applyStatus: (data) => {
+        set({
+          isRunning: Boolean(data.running),
+          topic: data.topic || '',
+          sessionId: data.session_id || null,
+          messages: data.last_messages || [],
+          agentStates: data.agent_states || {},
+          messageRate: Number(data.message_rate || 1.0),
+          connectionStatus: 'connected',
+          lastUpdated: new Date(),
+        });
+      },
+
       refreshStatus: async () => {
         try {
-          const res = await fetch('/status');
+          const res = await fetch('/api/v1/control/status');
           if (!res.ok) throw new Error('Status unavailable');
           const data = await res.json();
-          
-          set({
-            isRunning: Boolean(data.running),
-            topic: data.topic || '',
-            sessionId: data.session_id,
-            messages: data.last_messages || [],
-            agentStates: data.agent_states || {},
-            connectionStatus: 'connected',
-            lastUpdated: new Date(),
-          });
+          get().applyStatus(data);
         } catch (error) {
           set({ connectionStatus: 'disconnected' });
           console.error('Status refresh failed:', error);
         }
       },
+
+      connectRealtime: () => {
+        if (typeof window === 'undefined' || get().eventSource) return;
+        const source = new EventSource('/api/v1/control/events');
+        source.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            get().applyStatus(data);
+          } catch (error) {
+            console.debug('Ignored malformed realtime payload', error);
+          }
+        };
+        source.onerror = () => {
+          set({ connectionStatus: 'disconnected' });
+        };
+        set({ eventSource: source });
+      },
+
+      disconnectRealtime: () => {
+        const source = get().eventSource;
+        if (source) source.close();
+        set({ eventSource: null });
+      },
       
       startSession: async (topic) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await postForm('/start', { topic });
+          const response = await postForm('/api/v1/control/start', { topic });
           
           // Update with response state immediately if available
           if (response.running !== undefined) {
@@ -256,7 +285,7 @@ export const useStore = create(
       stopSession: async () => {
         set({ isLoading: true, error: null });
         try {
-          const response = await postForm('/stop');
+          const response = await postForm('/api/v1/control/stop');
           
           // Update with response state immediately if available
           if (response.running !== undefined) {
@@ -279,7 +308,7 @@ export const useStore = create(
       resumeSession: async () => {
         set({ isLoading: true, error: null });
         try {
-          const response = await postForm('/resume');
+          const response = await postForm('/api/v1/control/resume');
           
           // Update with response state immediately if available
           if (response.running !== undefined) {
@@ -304,7 +333,7 @@ export const useStore = create(
       clearMemory: async () => {
         set({ isLoading: true, error: null });
         try {
-          await postForm('/memory/clear');
+          await postForm('/api/v1/control/memory/clear');
           await get().refreshStatus();
           set({ isLoading: false });
           return true;
@@ -316,8 +345,47 @@ export const useStore = create(
       
       sendMessage: async (content, sender = 'Admin') => {
         try {
-          await postForm('/messages', { content, sender });
+          await postForm('/api/v1/control/messages', { content, sender });
           await get().refreshStatus();
+          return true;
+        } catch (error) {
+          set({ error: error.message });
+          return false;
+        }
+      },
+
+      interruptSession: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          await postForm('/api/v1/control/interrupt');
+          await get().refreshStatus();
+          set({ isLoading: false });
+          return true;
+        } catch (error) {
+          set({ error: error.message, isLoading: false });
+          return false;
+        }
+      },
+
+      switchContext: async (topic) => {
+        set({ isLoading: true, error: null });
+        try {
+          await postForm('/api/v1/control/context/switch', { topic });
+          await get().refreshStatus();
+          set({ isLoading: false });
+          return true;
+        } catch (error) {
+          set({ error: error.message, isLoading: false });
+          return false;
+        }
+      },
+
+      setMessageRate: async (rate) => {
+        try {
+          const response = await postForm('/api/v1/control/rate', { rate: String(rate) });
+          if (response.message_rate !== undefined) {
+            set({ messageRate: Number(response.message_rate) });
+          }
           return true;
         } catch (error) {
           set({ error: error.message });

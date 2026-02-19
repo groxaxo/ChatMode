@@ -13,6 +13,8 @@ function App() {
   const {
     activeTab,
     refreshStatus,
+    connectRealtime,
+    disconnectRealtime,
     fetchCurrentUser,
     fetchFilterStatus,
     fetchAgents,
@@ -26,12 +28,13 @@ function App() {
     refreshStatus();
     fetchFilterStatus();
     fetchAgents();
-    const interval = setInterval(() => {
-      refreshStatus();
-      fetchAgents();
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [refreshStatus, fetchFilterStatus, fetchAgents]);
+    connectRealtime();
+    const interval = setInterval(fetchAgents, 5000);
+    return () => {
+      clearInterval(interval);
+      disconnectRealtime();
+    };
+  }, [refreshStatus, fetchFilterStatus, fetchAgents, connectRealtime, disconnectRealtime]);
 
   // Check auth on mount
   useEffect(() => {
