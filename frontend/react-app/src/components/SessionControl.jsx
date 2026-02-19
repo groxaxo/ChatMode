@@ -30,9 +30,14 @@ export default function SessionControl() {
     resumeSession,
     clearMemory,
     sendMessage,
+    interruptSession,
+    switchContext,
+    messageRate,
+    setMessageRate,
   } = useStore();
   
   const [topicInput, setTopicInput] = useState('');
+  const [contextTopic, setContextTopic] = useState('');
   const [sender, setSender] = useState('Admin');
   const [content, setContent] = useState('');
   
@@ -46,6 +51,12 @@ export default function SessionControl() {
     if (!content.trim()) return;
     await sendMessage(content.trim(), sender);
     setContent('');
+  };
+
+  const handleContextSwitch = async () => {
+    if (!contextTopic.trim()) return;
+    const switched = await switchContext(contextTopic.trim());
+    if (switched) setContextTopic('');
   };
   
   return (
@@ -107,6 +118,17 @@ export default function SessionControl() {
                 Stop
               </button>
               <button
+                onClick={interruptSession}
+                disabled={isLoading || !isRunning}
+                className="btn-cyber flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-cyber-warning/10 border border-cyber-warning/40 text-cyber-warning hover:bg-cyber-warning/20 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <Square size={16} />
+                Interrupt
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
                 onClick={clearMemory}
                 disabled={isLoading}
                 className="btn-cyber flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-cyber-danger/10 border border-cyber-danger/30 text-cyber-danger hover:bg-cyber-danger/20 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -114,6 +136,46 @@ export default function SessionControl() {
                 <Trash2 size={16} />
                 Clear
               </button>
+              <div className="flex items-center justify-center rounded-xl border border-cyber-border bg-cyber-darker/40 text-cyber-muted text-xs">
+                Live controls
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[0.65rem] uppercase tracking-widest text-cyber-muted block">
+                Context Switch
+              </label>
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <input
+                  type="text"
+                  value={contextTopic}
+                  onChange={(e) => setContextTopic(e.target.value)}
+                  placeholder="Switch conversation topic"
+                  className="w-full bg-cyber-darker border border-cyber-border rounded-lg px-3 py-2 text-sm text-cyber-text placeholder:text-cyber-muted/50 focus:border-cyber-accent transition-all"
+                />
+                <button
+                  onClick={handleContextSwitch}
+                  disabled={isLoading || !isRunning || !contextTopic.trim()}
+                  className="btn-cyber px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-cyber-text hover:border-cyber-accent/50 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[0.65rem] uppercase tracking-widest text-cyber-muted block">
+                Message Rate ({messageRate.toFixed(1)}x)
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="5"
+                step="0.1"
+                value={messageRate}
+                onChange={(e) => setMessageRate(e.target.value)}
+                className="w-full accent-cyber-accent"
+              />
             </div>
           </div>
           

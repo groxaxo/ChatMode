@@ -88,6 +88,7 @@ class ChatSession:
         self.session_id: Optional[str] = None
         self.admin_agent: Optional[AdminAgent] = None
         self.content_filter: Optional[ContentFilter] = None
+        self.message_rate: float = 1.0
 
         # Agent state management
         self.state_manager = create_session_state_manager()
@@ -220,6 +221,31 @@ class ChatSession:
                     pass
 
             logger.debug(f"✅ Session {self.session_id} stopped")
+
+    async def switch_topic(self, topic: str) -> bool:
+        """Switch conversation topic without resetting session state."""
+        topic = (topic or "").strip()
+        if not topic:
+            return False
+        async with self._lock:
+            self.topic = topic
+            self.inject_message("System", f"Context switched to: {topic}")
+            return True
+
+    def set_message_rate(self, message_rate: float) -> float:
+        """Set runtime message rate multiplier for turn pacing."""
+        rate = float(message_rate)
+        # Keep within a safe and practical range
+        self.message_rate = max(0.1, min(rate, 5.0))
+        return self.message_rate
+
+    def get_message_rate(self) -> float:
+        """Get current message rate multiplier."""
+        return self.message_rate
+
+    def _compute_turn_delay(self, base_sleep_seconds: float) -> float:
+        """Compute per-turn delay from base sleep and current message rate."""
+        return max(0.05, base_sleep_seconds / self.message_rate)
 
     def is_running(self) -> bool:
         """Check if session is running."""
@@ -582,7 +608,11 @@ class ChatSession:
 
         # Sleep after solo turn based on agent override
         if self._running:
-            await asyncio.sleep(agent.get_sleep_seconds(self.settings.sleep_seconds))
+            await asyncio.sleep(
+                self._compute_turn_delay(
+                    agent.get_sleep_seconds(self.settings.sleep_seconds)
+                )
+            )
 
     async def _run_multi_agent_mode(self, active_agents: Set[str]) -> None:
         """Run multi-agent mode (all agents take turns)."""
@@ -611,7 +641,9 @@ class ChatSession:
             # Sleep after each agent turn using per-agent override
             if self._running:
                 await asyncio.sleep(
-                    agent.get_sleep_seconds(self.settings.sleep_seconds)
+                    self._compute_turn_delay(
+                        agent.get_sleep_seconds(self.settings.sleep_seconds)
+                    )
                 )
 
     async def _maybe_summarize(self) -> None:

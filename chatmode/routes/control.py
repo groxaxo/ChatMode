@@ -1,9 +1,23 @@
+import asyncio
+import json
+
 from fastapi import APIRouter, Depends, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from ..session import ChatSession
 from .advanced import get_chat_session
 
 router = APIRouter(prefix="/api/v1/control", tags=["control"])
+
+
+async def _session_status_payload(session: ChatSession) -> dict:
+    return {
+        "running": session.is_running(),
+        "topic": session.topic,
+        "session_id": session.session_id,
+        "last_messages": session.last_messages,
+        "agent_states": await session.get_agent_states(),
+        "message_rate": session.get_message_rate(),
+    }
 
 
 @router.post("/start")
@@ -34,6 +48,13 @@ async def stop_session(session: ChatSession = Depends(get_chat_session)):
     """Stop the current chat session."""
     await session.stop()
     return JSONResponse({"status": "stopped"})
+
+
+@router.post("/interrupt")
+async def interrupt_session(session: ChatSession = Depends(get_chat_session)):
+    """Interrupt the active generation immediately."""
+    await session.stop()
+    return JSONResponse({"status": "interrupted"})
 
 
 @router.post("/memory/clear")
@@ -103,3 +124,43 @@ def send_message(
 
     session.inject_message(sender, content)
     return JSONResponse({"status": "sent", "sender": sender})
+
+
+@router.post("/context/switch")
+async def switch_context(
+    topic: str = Form(""), session: ChatSession = Depends(get_chat_session)
+):
+    """Switch active conversation topic without reconnecting."""
+    if await session.switch_topic(topic):
+        return JSONResponse({"status": "switched", "topic": session.topic})
+    return JSONResponse(
+        {"status": "failed", "reason": "Topic is required"}, status_code=400
+    )
+
+
+@router.post("/rate")
+async def set_message_rate(
+    rate: float = Form(1.0), session: ChatSession = Depends(get_chat_session)
+):
+    """Adjust runtime message pacing multiplier."""
+    applied_rate = session.set_message_rate(rate)
+    return JSONResponse({"status": "updated", "message_rate": applied_rate})
+
+
+@router.get("/status")
+async def control_status(session: ChatSession = Depends(get_chat_session)):
+    """Get control-plane session status snapshot."""
+    return JSONResponse(await _session_status_payload(session))
+
+
+@router.get("/events")
+async def control_events(session: ChatSession = Depends(get_chat_session)):
+    """Server-Sent Events stream for real-time control/status updates."""
+
+    async def event_generator():
+        while True:
+            payload = await _session_status_payload(session)
+            yield f"data: {json.dumps(payload)}\n\n"
+            await asyncio.sleep(1.0)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
