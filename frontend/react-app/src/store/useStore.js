@@ -241,8 +241,8 @@ export const useStore = create(
           try {
             const data = JSON.parse(event.data);
             get().applyStatus(data);
-          } catch (_) {
-            // Ignore malformed stream chunks
+          } catch (error) {
+            console.debug('Ignored malformed realtime payload', error);
           }
         };
         source.onerror = () => {
@@ -333,7 +333,7 @@ export const useStore = create(
       clearMemory: async () => {
         set({ isLoading: true, error: null });
         try {
-           await postForm('/api/v1/control/memory/clear');
+          await postForm('/api/v1/control/memory/clear');
           await get().refreshStatus();
           set({ isLoading: false });
           return true;

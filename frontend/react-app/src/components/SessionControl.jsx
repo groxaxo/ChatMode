@@ -58,6 +58,10 @@ export default function SessionControl() {
     const switched = await switchContext(contextTopic.trim());
     if (switched) setContextTopic('');
   };
+
+  const handleRateChange = async (event) => {
+    await setMessageRate(parseFloat(event.target.value));
+  };
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
@@ -173,7 +177,7 @@ export default function SessionControl() {
                 max="5"
                 step="0.1"
                 value={messageRate}
-                onChange={(e) => setMessageRate(e.target.value)}
+                onChange={handleRateChange}
                 className="w-full accent-cyber-accent"
               />
             </div>

@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from ..session import ChatSession
 from .advanced import get_chat_session
@@ -154,13 +154,20 @@ async def control_status(session: ChatSession = Depends(get_chat_session)):
 
 
 @router.get("/events")
-async def control_events(session: ChatSession = Depends(get_chat_session)):
+async def control_events(
+    request: Request, session: ChatSession = Depends(get_chat_session)
+):
     """Server-Sent Events stream for real-time control/status updates."""
 
     async def event_generator():
         while True:
+            try:
+                if await request.is_disconnected():
+                    break
+            except Exception:
+                break
             payload = await _session_status_payload(session)
             yield f"data: {json.dumps(payload)}\n\n"
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.25)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
