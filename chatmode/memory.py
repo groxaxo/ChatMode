@@ -1,7 +1,7 @@
 import logging
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import chromadb
@@ -56,7 +56,7 @@ class MemoryStore:
 
         # Build enriched metadata
         enriched_metadata = metadata.copy() if metadata else {}
-        enriched_metadata["timestamp"] = datetime.utcnow().isoformat()
+        enriched_metadata["timestamp"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         if session_id:
             enriched_metadata["session_id"] = session_id
         if agent_id:

@@ -2,6 +2,7 @@
 Database connection and session management.
 """
 
+import logging
 import os
 from contextlib import contextmanager
 
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from .models import Base, create_all_tables
+
+logger = logging.getLogger(__name__)
 
 # Database URL from environment, defaulting to SQLite
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/chatmode.db")
@@ -89,7 +92,7 @@ def init_db():
     # Create all tables
     create_all_tables(engine)
     _apply_sqlite_migrations()
-    print(f"Database initialized: {DATABASE_URL}")
+    logger.info(f"Database initialized: {DATABASE_URL}")
 
 
 def _apply_sqlite_migrations() -> None:
@@ -136,10 +139,10 @@ def test_connection():
     try:
         with get_db_context() as db:
             db.execute("SELECT 1")
-        print("Database connection successful")
+        logger.info("Database connection successful")
         return True
     except Exception as e:
-        print(f"Database connection failed: {e}")
+        logger.error(f"Database connection failed: {e}")
         return False
 
 
@@ -148,4 +151,4 @@ if os.getenv("AUTO_INIT_DB", "true").lower() == "true":
     try:
         init_db()
     except Exception as e:
-        print(f"Warning: Auto database init failed: {e}")
+        logger.warning(f"Auto database init failed: {e}")

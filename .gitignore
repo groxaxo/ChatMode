@@ -33,6 +33,7 @@ node_modules/
 # TTS output (generated files)
 tts_out/*.wav
 tts_out/*.mp3
+data/audio/
 
 # Temporary and obsolete files
 agent_config.json

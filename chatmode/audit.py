@@ -2,7 +2,7 @@
 Audit logging utilities.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -45,7 +45,7 @@ def log_action(
         changes=changes,
         ip_address=ip_address,
         user_agent=user_agent,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
     db.add(entry)

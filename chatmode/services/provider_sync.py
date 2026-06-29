@@ -8,7 +8,7 @@ including Ollama, OpenAI, DeepSeek, Fireworks AI, xAI, and any OpenAI-compatible
 import asyncio
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -325,7 +325,7 @@ async def sync_provider_models(
                 )
                 existing_model.context_window = model_data.get("context_window")
                 existing_model.model_metadata = model_data.get("metadata", {})
-                existing_model.updated_at = datetime.utcnow()
+                existing_model.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 updated_count += 1
             else:
                 # Create new model
@@ -348,7 +348,7 @@ async def sync_provider_models(
                 removed_count += 1
 
         # Update provider sync status
-        provider.last_sync_at = datetime.utcnow()
+        provider.last_sync_at = datetime.now(timezone.utc).replace(tzinfo=None)
         provider.sync_status = "success"
         provider.sync_error = None
         db.commit()
@@ -366,7 +366,7 @@ async def sync_provider_models(
     except Exception as e:
         provider.sync_status = "error"
         provider.sync_error = str(e)
-        provider.last_sync_at = datetime.utcnow()
+        provider.last_sync_at = datetime.now(timezone.utc).replace(tzinfo=None)
         db.commit()
 
         return {

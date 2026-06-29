@@ -11,13 +11,12 @@ This module defines SQLAlchemy models for:
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import ARRAY, INET, UUID
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -25,6 +24,10 @@ Base = declarative_base()
 
 def generate_uuid():
     return str(uuid.uuid4())
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class UserRole(str, enum.Enum):
@@ -44,7 +47,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default=UserRole.VIEWER.value)
     enabled = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     last_login = Column(DateTime, nullable=True)
 
     # Relationships
@@ -87,8 +90,8 @@ class Agent(Base):
     enabled = Column(Boolean, default=True, index=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     # Ownership
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
@@ -246,7 +249,7 @@ class Conversation(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     topic = Column(Text, nullable=False)
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=_utcnow)
     ended_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
 
@@ -289,7 +292,7 @@ class Message(Base):
 
     # Content
     content = Column(Text, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=_utcnow)
 
     # Generation metadata
     model = Column(String(200), nullable=True)
@@ -339,7 +342,7 @@ class VoiceAsset(Base):
     checksum = Column(String(64), nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     expires_at = Column(DateTime, nullable=True)
 
     # Creator
@@ -391,8 +394,8 @@ class Provider(Base):
     is_default = Column(Boolean, default=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     # Relationships
     models = relationship(
@@ -441,8 +444,8 @@ class ProviderModel(Base):
     is_default = Column(Boolean, default=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     # Relationships
     provider = relationship("Provider", back_populates="models")
@@ -461,7 +464,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=_utcnow, index=True)
 
     # Who
     user_id = Column(String(36), ForeignKey("users.id"), nullable=True)

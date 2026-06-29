@@ -2,7 +2,7 @@
 CRUD operations for database models.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func
@@ -210,7 +210,7 @@ def update_agent(
         setattr(agent, field, value)
 
     agent.updated_by = updated_by
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     db.commit()
     db.refresh(agent)
@@ -225,7 +225,7 @@ def delete_agent(db: Session, agent_id: str) -> bool:
         return False
 
     agent.enabled = False
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
 
     return True
@@ -247,7 +247,7 @@ def update_agent_voice_settings(
     for field, value in update_data.items():
         setattr(agent.voice_settings, field, value)
 
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(agent.voice_settings)
 
@@ -270,7 +270,7 @@ def update_agent_memory_settings(
     for field, value in update_data.items():
         setattr(agent.memory_settings, field, value)
 
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(agent.memory_settings)
 
@@ -293,7 +293,7 @@ def update_agent_permissions(
     for field, value in update_data.items():
         setattr(agent.permissions, field, value)
 
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(agent.permissions)
 
@@ -352,7 +352,7 @@ def end_conversation(db: Session, conversation_id: str) -> Optional[Conversation
         return None
 
     conversation.is_active = False
-    conversation.ended_at = datetime.utcnow()
+    conversation.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(conversation)
 

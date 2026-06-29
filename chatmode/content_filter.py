@@ -46,8 +46,9 @@ class ContentFilter:
         self._compiled_patterns = []
         for word in self.blocked_words:
             if word:
-                # Escape special regex characters and make case-insensitive
-                pattern = re.compile(re.escape(word), re.IGNORECASE)
+                pattern = re.compile(
+                    r"\b" + re.escape(word) + r"\b", re.IGNORECASE
+                )
                 self._compiled_patterns.append((word, pattern))
 
     def check_content(self, content: str) -> FilterResult:

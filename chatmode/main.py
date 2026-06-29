@@ -8,12 +8,15 @@ Combines all routes and serves the unified frontend.
 import contextlib
 import logging
 import os
+import time
+from typing import Optional
 
-from fastapi import FastAPI, Form, Request, Depends
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .config import load_settings
@@ -40,6 +43,12 @@ async def lifespan(app: FastAPI):
         log_to_console=True,
     )
 
+    # Warn about insecure defaults in use
+    if os.getenv("SECRET_KEY", "dev-secret-key-change-in-production") == "dev-secret-key-change-in-production":
+        logger.warning(
+            "⚠️  SECRET_KEY is using the default value — set a strong SECRET_KEY in production!"
+        )
+
     logger.info("🚀 Starting ChatMode application")
     init_db()
     logger.info("✅ Database initialized")
@@ -52,7 +61,6 @@ async def lifespan(app: FastAPI):
 
         db = SessionLocal()
         try:
-            # Check if user wants to scan shell configs (.bashrc, .zshrc)
             scan_shell = os.getenv("SCAN_SHELL_CONFIGS", "false").lower() in (
                 "true",
                 "1",
@@ -65,7 +73,6 @@ async def lifespan(app: FastAPI):
                     "🔍 Scanning shell config files (.bashrc, .zshrc) for API keys..."
                 )
 
-            # Discover and create providers from environment
             result = await initialize_providers(
                 db, auto_sync=True, scan_shell_configs=scan_shell
             )
@@ -102,7 +109,6 @@ async def lifespan(app: FastAPI):
                     "Supported: OPENAI_API_KEY, FIREWORKS_API_KEY, DEEPSEEK_API_KEY, etc."
                 )
 
-            # Load providers into runtime registry
             load_providers_from_db(db)
             logger.info("✅ Providers loaded into runtime registry")
 
@@ -125,35 +131,34 @@ app = FastAPI(
 chat_session = ChatSession(settings)
 
 
-# Add CORS middleware
+# CORS — read allowed origins from environment; default to wildcard for development
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# Add request logging middleware
+# Request logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    import time
-
     from .logger_config import (
         clear_correlation_id,
         get_correlation_id,
         set_correlation_id,
     )
 
-    # Set correlation ID for this request
     correlation_id = request.headers.get("X-Correlation-ID") or set_correlation_id()
 
     start_time = time.time()
     method = request.method
     url = str(request.url)
 
-    # Log request start
     logger.debug(
         f"➡️  Request started: {method} {url}",
         extra={
@@ -168,7 +173,6 @@ async def log_requests(request: Request, call_next):
         response = await call_next(request)
         duration = (time.time() - start_time) * 1000
 
-        # Log response
         status_code = response.status_code
         log_level = (
             logging.DEBUG
@@ -190,7 +194,6 @@ async def log_requests(request: Request, call_next):
             },
         )
 
-        # Add correlation ID to response headers
         response.headers["X-Correlation-ID"] = correlation_id
         return response
     except Exception as e:
@@ -217,10 +220,7 @@ try:
     from .routes.advanced import set_global_chat_session
     from .routes.filter import set_filter_session
 
-    # Set global session for advanced routes
     set_global_chat_session(chat_session)
-
-    # Set session for filter routes
     set_filter_session(chat_session)
 
     for router in all_routers:
@@ -247,14 +247,12 @@ frontend_dir = os.getenv("FRONTEND_DIR") or (
 )
 
 # React frontend directory (built version)
-# Build output from frontend/react-app/vite.config.js: outDir: '../dist'
 react_dist_dir = os.path.join(base_dir, "frontend", "dist")
 react_static_path = "/react-static"
 
 if os.path.exists(frontend_dir):
     app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
 
-# Serve React build assets if available
 if os.path.exists(react_dist_dir):
     app.mount(
         react_static_path, StaticFiles(directory=react_dist_dir), name="react_static"
@@ -264,11 +262,9 @@ if os.path.exists(react_dist_dir):
 os.makedirs(settings.tts_output_dir, exist_ok=True)
 os.makedirs("./data/audio", exist_ok=True)
 
-# Legacy TTS output directory
 app.mount(
     "/audio/legacy", StaticFiles(directory=settings.tts_output_dir), name="audio_legacy"
 )
-# New audio storage with session-based organization
 app.mount("/audio", StaticFiles(directory="./data/audio"), name="audio")
 
 
@@ -280,24 +276,15 @@ def admin_page(request: Request):
     DEFAULT FRONTEND: React Application
     Location: frontend/react-app/dist/
     Build command: cd frontend/react-app && npm run build
-
-    The React frontend provides:
-    - Agent Management with tickbox enable/disable
-    - Agent sorting (enabled agents appear at top)
-    - Real-time session monitoring
-    - User authentication and role-based access
-    - Provider configuration interface
     """
     react_index = os.path.join(react_dist_dir, "index.html")
     if os.path.exists(react_index):
         with open(react_index, "r") as f:
             content = f.read()
-            # Rewrite asset paths to use /react-static/
             content = content.replace('"/assets/', f'"{react_static_path}/assets/')
             content = content.replace('"/vite.svg"', f'"{react_static_path}/vite.svg"')
             return HTMLResponse(content=content)
 
-    # Error if React frontend is not built
     return HTMLResponse(
         content="""<h1>ChatMode - Frontend Not Built</h1>
         <p>The React frontend needs to be built. Run:</p>
@@ -310,28 +297,23 @@ def admin_page(request: Request):
 @app.get("/status")
 async def status(request: Request):
     """Get session status and recent messages."""
-    # Sanitize audio paths to URLs
     messages = []
     base_url = str(request.base_url).rstrip("/")
 
     for msg in chat_session.last_messages:
         new_msg = msg.copy()
 
-        # Handle legacy audio paths
         if new_msg.get("audio") and isinstance(new_msg["audio"], str):
             if not new_msg["audio"].startswith("http"):
-                # Convert absolute path to relative URL
                 filename = os.path.basename(new_msg["audio"])
                 new_msg["audio"] = f"{base_url}/audio/{filename}"
 
-        # Handle new audio_url field
         if new_msg.get("audio_url") and isinstance(new_msg["audio_url"], str):
             if not new_msg["audio_url"].startswith("http"):
                 new_msg["audio_url"] = f"{base_url}{new_msg['audio_url']}"
 
         messages.append(new_msg)
 
-    # Get agent states
     agent_states = await chat_session.get_agent_states()
 
     return JSONResponse(
@@ -350,26 +332,41 @@ async def status(request: Request):
 # ============================================================================
 
 
-@app.post("/agents/{agent_name}/pause")
-async def pause_agent(agent_name: str, reason: str = Form(None)):
-    """Pause a specific agent."""
-    success = await chat_session.pause_agent(agent_name, reason)
+class AgentActionRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+async def _agent_action_response(
+    success: bool,
+    status_name: str,
+    agent_name: str,
+    reason: Optional[str],
+    fail_msg: str,
+) -> JSONResponse:
+    """Build a consistent response for agent control actions."""
     if success:
-        # Get updated agent state to return immediately
         agent_states = await chat_session.get_agent_states()
-        return JSONResponse({
-            "status": "paused", 
-            "agent": agent_name, 
-            "reason": reason,
-            "agent_state": agent_states.get(agent_name, {})
-        })
+        return JSONResponse(
+            {
+                "status": status_name,
+                "agent": agent_name,
+                "reason": reason,
+                "agent_state": agent_states.get(agent_name, {}),
+            }
+        )
     return JSONResponse(
-        {
-            "status": "failed",
-            "agent": agent_name,
-            "reason": "Agent not found or already paused",
-        },
+        {"status": "failed", "agent": agent_name, "reason": fail_msg},
         status_code=400,
+    )
+
+
+@app.post("/agents/{agent_name}/pause")
+async def pause_agent(agent_name: str, body: AgentActionRequest = AgentActionRequest()):
+    """Pause a specific agent."""
+    success = await chat_session.pause_agent(agent_name, body.reason)
+    return await _agent_action_response(
+        success, "paused", agent_name, body.reason,
+        "Agent not found or already paused",
     )
 
 
@@ -377,67 +374,29 @@ async def pause_agent(agent_name: str, reason: str = Form(None)):
 async def resume_agent(agent_name: str):
     """Resume a paused agent."""
     success = await chat_session.resume_agent(agent_name)
-    if success:
-        # Get updated agent state to return immediately
-        agent_states = await chat_session.get_agent_states()
-        return JSONResponse({
-            "status": "resumed", 
-            "agent": agent_name,
-            "agent_state": agent_states.get(agent_name, {})
-        })
-    return JSONResponse(
-        {
-            "status": "failed",
-            "agent": agent_name,
-            "reason": "Agent not found or not paused",
-        },
-        status_code=400,
+    return await _agent_action_response(
+        success, "resumed", agent_name, None,
+        "Agent not found or not paused",
     )
 
 
 @app.post("/agents/{agent_name}/stop")
-async def stop_agent(agent_name: str, reason: str = Form(None)):
+async def stop_agent(agent_name: str, body: AgentActionRequest = AgentActionRequest()):
     """Stop a specific agent."""
-    success = await chat_session.stop_agent(agent_name, reason)
-    if success:
-        # Get updated agent state to return immediately
-        agent_states = await chat_session.get_agent_states()
-        return JSONResponse({
-            "status": "stopped", 
-            "agent": agent_name, 
-            "reason": reason,
-            "agent_state": agent_states.get(agent_name, {})
-        })
-    return JSONResponse(
-        {
-            "status": "failed",
-            "agent": agent_name,
-            "reason": "Agent not found or already stopped",
-        },
-        status_code=400,
+    success = await chat_session.stop_agent(agent_name, body.reason)
+    return await _agent_action_response(
+        success, "stopped", agent_name, body.reason,
+        "Agent not found or already stopped",
     )
 
 
 @app.post("/agents/{agent_name}/finish")
-async def finish_agent(agent_name: str, reason: str = Form(None)):
+async def finish_agent(agent_name: str, body: AgentActionRequest = AgentActionRequest()):
     """Mark an agent as finished."""
-    success = await chat_session.finish_agent(agent_name, reason)
-    if success:
-        # Get updated agent state to return immediately
-        agent_states = await chat_session.get_agent_states()
-        return JSONResponse({
-            "status": "finished", 
-            "agent": agent_name, 
-            "reason": reason,
-            "agent_state": agent_states.get(agent_name, {})
-        })
-    return JSONResponse(
-        {
-            "status": "failed",
-            "agent": agent_name,
-            "reason": "Agent not found or already finished",
-        },
-        status_code=400,
+    success = await chat_session.finish_agent(agent_name, body.reason)
+    return await _agent_action_response(
+        success, "finished", agent_name, body.reason,
+        "Agent not found or already finished",
     )
 
 
@@ -445,21 +404,9 @@ async def finish_agent(agent_name: str, reason: str = Form(None)):
 async def restart_agent(agent_name: str):
     """Restart a stopped or finished agent."""
     success = await chat_session.restart_agent(agent_name)
-    if success:
-        # Get updated agent state to return immediately
-        agent_states = await chat_session.get_agent_states()
-        return JSONResponse({
-            "status": "restarted", 
-            "agent": agent_name,
-            "agent_state": agent_states.get(agent_name, {})
-        })
-    return JSONResponse(
-        {
-            "status": "failed",
-            "agent": agent_name,
-            "reason": "Agent not found or not stopped/finished",
-        },
-        status_code=400,
+    return await _agent_action_response(
+        success, "restarted", agent_name, None,
+        "Agent not found or not stopped/finished",
     )
 
 

@@ -26,6 +26,9 @@ from .tts_provider import AudioStorage, TTSResult, build_tts_provider
 
 logger = get_logger(__name__)
 
+# Number of recent messages surfaced by the /status API
+_LAST_MESSAGES_WINDOW = 8
+
 
 @log_execution_time(logger)
 def load_agents(settings: Settings) -> List[ChatAgent]:
@@ -352,7 +355,7 @@ class ChatSession:
                 }
                 self.history.append(entry)
                 self.last_messages.append(entry)
-                if len(self.last_messages) > 8:
+                if len(self.last_messages) > _LAST_MESSAGES_WINDOW:
                     self.last_messages.pop(0)
                 return
             content = filtered_content
@@ -360,7 +363,7 @@ class ChatSession:
         entry = {"sender": sender, "content": content}
         self.history.append(entry)
         self.last_messages.append(entry)
-        if len(self.last_messages) > 8:
+        if len(self.last_messages) > _LAST_MESSAGES_WINDOW:
             self.last_messages.pop(0)
 
     async def _generate_tts(
@@ -431,7 +434,7 @@ class ChatSession:
         message_id = str(uuid.uuid4())
 
         # Generate text response
-        response = await asyncio.get_event_loop().run_in_executor(
+        response = await asyncio.get_running_loop().run_in_executor(
             None,
             agent.generate_response,
             self.topic,
@@ -517,7 +520,7 @@ class ChatSession:
         # Add to history
         self.history.append(entry)
         self.last_messages.append(entry)
-        if len(self.last_messages) > 8:
+        if len(self.last_messages) > _LAST_MESSAGES_WINDOW:
             self.last_messages.pop(0)
 
         # Store in memory
@@ -598,7 +601,7 @@ class ChatSession:
             }
             self.history.append(admin_entry)
             self.last_messages.append(admin_entry)
-            if len(self.last_messages) > 8:
+            if len(self.last_messages) > _LAST_MESSAGES_WINDOW:
                 self.last_messages.pop(0)
         except Exception as e:
             logger.error(f"Admin agent error: {e}")
@@ -694,7 +697,7 @@ class ChatSession:
             ]
 
             # Run in executor since chat_provider.chat is synchronous
-            summary = await asyncio.get_event_loop().run_in_executor(
+            summary = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: first_agent.chat_provider.chat(
                     model=first_agent.model or self.settings.default_chat_model,

@@ -3,7 +3,7 @@ Audit log routes.
 """
 
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -58,7 +58,7 @@ async def list_audit_logs(
     # Calculate date filter
     from_date = None
     if days:
-        from_date = datetime.utcnow() - timedelta(days=days)
+        from_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
 
     logs, total = crud.get_audit_logs(
         db,
@@ -146,7 +146,7 @@ async def get_user_activity(
     """
     from_date = None
     if days:
-        from_date = datetime.utcnow() - timedelta(days=days)
+        from_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
 
     logs, total = crud.get_audit_logs(
         db, page=page, per_page=per_page, user_id=user_id, from_date=from_date
@@ -172,7 +172,7 @@ async def get_audit_stats(
 
     Returns summary of actions over the specified period.
     """
-    from_date = datetime.utcnow() - timedelta(days=days)
+    from_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
 
     # Get all logs for the period
     logs, total = crud.get_audit_logs(db, page=1, per_page=10000, from_date=from_date)

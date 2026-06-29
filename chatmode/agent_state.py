@@ -7,7 +7,7 @@ Provides per-agent state tracking and control mechanisms.
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Dict, Optional, Set
 
@@ -35,7 +35,9 @@ class AgentStateInfo:
     """Information about an agent's current state."""
 
     state: AgentState = AgentState.ACTIVE
-    changed_at: datetime = field(default_factory=datetime.utcnow)
+    changed_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
     reason: Optional[str] = None
     # Track the current task for cancellation support
     current_task: Optional[asyncio.Task] = None
@@ -119,7 +121,7 @@ class AgentStateManager:
                 state_info.current_task.cancel()
 
             state_info.state = AgentState.PAUSED
-            state_info.changed_at = datetime.utcnow()
+            state_info.changed_at = datetime.now(timezone.utc).replace(tzinfo=None)
             state_info.reason = reason
 
             logger.info(f"Agent '{agent_name}' paused: {reason or 'No reason given'}")
@@ -148,7 +150,7 @@ class AgentStateManager:
                 return False
 
             state_info.state = AgentState.ACTIVE
-            state_info.changed_at = datetime.utcnow()
+            state_info.changed_at = datetime.now(timezone.utc).replace(tzinfo=None)
             state_info.reason = None
 
             logger.info(f"Agent '{agent_name}' resumed")
@@ -187,7 +189,7 @@ class AgentStateManager:
                     pass
 
             state_info.state = AgentState.STOPPED
-            state_info.changed_at = datetime.utcnow()
+            state_info.changed_at = datetime.now(timezone.utc).replace(tzinfo=None)
             state_info.reason = reason
             state_info.current_task = None
 
@@ -225,7 +227,7 @@ class AgentStateManager:
                     pass
 
             state_info.state = AgentState.FINISHED
-            state_info.changed_at = datetime.utcnow()
+            state_info.changed_at = datetime.now(timezone.utc).replace(tzinfo=None)
             state_info.reason = reason
             state_info.current_task = None
 
@@ -255,7 +257,7 @@ class AgentStateManager:
                 return False
 
             state_info.state = AgentState.ACTIVE
-            state_info.changed_at = datetime.utcnow()
+            state_info.changed_at = datetime.now(timezone.utc).replace(tzinfo=None)
             state_info.reason = "Agent restarted"
 
             logger.info(f"Agent '{agent_name}' restarted")
@@ -302,7 +304,7 @@ class AgentStateManager:
                 if state_info.current_task and not state_info.current_task.done():
                     state_info.current_task.cancel()
                 state_info.state = AgentState.ACTIVE
-                state_info.changed_at = datetime.utcnow()
+                state_info.changed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 state_info.reason = None
                 state_info.current_task = None
             logger.info("All agent states reset to ACTIVE")

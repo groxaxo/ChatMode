@@ -1,7 +1,10 @@
+import logging
 from typing import Dict, List
 
 from .config import Settings
 from .providers import build_chat_provider
+
+logger = logging.getLogger(__name__)
 
 
 class AdminAgent:
@@ -41,7 +44,7 @@ class AdminAgent:
                 max_tokens=64,
             ).strip()
         except Exception as exc:
-            print(f"Error generating topic: {exc}")
+            logger.error(f"Error generating topic: {exc}")
             return "Is artificial consciousness possible?"
 
     def generate_response(
@@ -93,5 +96,5 @@ class AdminAgent:
                 max_tokens=100,
             ).strip()
         except Exception as exc:
-            print(f"Error generating admin response: {exc}")
+            logger.error(f"Error generating admin response: {exc}")
             return "Please continue with your thoughts."

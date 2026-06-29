@@ -2,9 +2,12 @@
 Authentication and authorization utilities.
 """
 
+import base64
+import hashlib
+import logging
 import os
-from datetime import datetime, timedelta
-from functools import wraps
+import secrets
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -15,6 +18,8 @@ from sqlalchemy.orm import Session
 
 from .database import get_db
 from .models import User, UserRole
+
+logger = logging.getLogger(__name__)
 
 # Security configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
@@ -38,10 +43,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta=None) -> str:
     """Create a JWT access token."""
+    from datetime import timedelta
+
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
@@ -67,8 +74,7 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     if not user.enabled:
         return None
 
-    # Update last login
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
 
     return user
@@ -170,16 +176,21 @@ def require_role(allowed_roles: list):
 
 
 def create_initial_admin(
-    db: Session, username: str = "admin", password: str = "admin123"
+    db: Session, username: str = "admin", password: Optional[str] = None
 ):
     """
     Create initial admin user if no users exist.
 
-    Should be called during first-time setup.
+    Should be called during first-time setup. If no password is provided,
+    a secure random password is generated and printed once.
     """
     existing = db.query(User).first()
     if existing:
         return None
+
+    generated = password is None
+    if generated:
+        password = secrets.token_urlsafe(16)
 
     admin = User(
         username=username,
@@ -191,35 +202,45 @@ def create_initial_admin(
     db.commit()
     db.refresh(admin)
 
-    print(f"Created initial admin user: {username}")
+    if generated:
+        print(f"Created initial admin user: {username}")
+        print(f"Generated password (save this, it will not be shown again): {password}")
+    else:
+        print(f"Created initial admin user: {username}")
     return admin
 
 
-# Encryption utilities for API keys
-def encrypt_api_key(api_key: str) -> str:
-    """
-    Encrypt an API key for storage.
+# ============================================================================
+# API key encryption using Fernet symmetric encryption
+# ============================================================================
 
-    In production, use proper encryption (e.g., Fernet, AWS KMS).
-    This implementation uses simple base64 encoding as placeholder.
-    """
+def _get_fernet():
+    """Derive a Fernet cipher from SECRET_KEY."""
+    from cryptography.fernet import Fernet
+
+    key_bytes = hashlib.sha256(SECRET_KEY.encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(key_bytes))
+
+
+def encrypt_api_key(api_key: str) -> str:
+    """Encrypt an API key for storage using Fernet symmetric encryption."""
     if not api_key:
         return ""
-    import base64
-
-    # Simple obfuscation - replace with real encryption in production
-    return base64.b64encode(api_key.encode()).decode()
+    return _get_fernet().encrypt(api_key.encode()).decode()
 
 
 def decrypt_api_key(encrypted_key: str) -> str:
-    """
-    Decrypt an API key from storage.
-    """
+    """Decrypt an API key from storage. Falls back to legacy base64 for old records."""
     if not encrypted_key:
         return ""
-    import base64
+    from cryptography.fernet import InvalidToken
 
     try:
-        return base64.b64decode(encrypted_key.encode()).decode()
-    except Exception:
-        return ""
+        return _get_fernet().decrypt(encrypted_key.encode()).decode()
+    except (InvalidToken, Exception):
+        # Legacy base64-encoded keys (pre-encryption migration)
+        try:
+            return base64.b64decode(encrypted_key.encode()).decode()
+        except Exception:
+            logger.warning("Failed to decrypt API key — key may need to be re-entered")
+            return ""

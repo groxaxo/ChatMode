@@ -6,10 +6,13 @@ and shell configuration files (.bashrc, .zshrc) on application startup.
 """
 
 import asyncio
+import logging
 import os
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.orm import Session
 
@@ -310,7 +313,7 @@ def parse_shell_config_file(filepath: str) -> Dict[str, str]:
                     env_vars[var_name] = var_value.strip()
 
     except Exception as e:
-        print(f"Warning: Could not parse {filepath}: {e}")
+        logger.warning(f"Could not parse {filepath}: {e}")
 
     return env_vars
 

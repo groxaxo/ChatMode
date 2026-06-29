@@ -175,7 +175,7 @@ class ChatAgent:
                 args=self.mcp_args,
             )
         except Exception as e:
-            print(f"Warning: Failed to initialize MCP client for {self.name}: {e}")
+            logger.warning(f"Failed to initialize MCP client for {self.name}: {e}")
 
     def _build_messages(
         self, topic: str, conversation_history: List[Dict[str, str]]
@@ -251,7 +251,7 @@ class ChatAgent:
             else:
                 return {}
         except (json.JSONDecodeError, TypeError) as e:
-            print(f"Warning: Failed to parse tool arguments: {e}")
+            logger.warning(f"Failed to parse tool arguments: {e}")
             return {}
 
     @log_execution_time(logger, logging.DEBUG)
@@ -269,7 +269,7 @@ class ChatAgent:
                     self.mcp_client.get_openai_tools(allowed_tools=self.allowed_tools)
                 )
             except Exception as e:
-                print(f"Warning: Failed to get MCP tools: {e}")
+                logger.warning(f"Failed to get MCP tools: {e}")
 
         temperature = (
             self.temperature_override
